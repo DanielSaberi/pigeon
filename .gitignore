@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Data & models (too large for git)
+benchmark/data/
+benchmark/models/
+
+# Results (regeneratable)
+benchmark/results/
+
+# Claude Code
+.claude/
