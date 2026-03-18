@@ -17,8 +17,14 @@ import re
 import sys
 import time
 from datetime import datetime
+from urllib.parse import unquote, urlparse
 
 from openai import OpenAI
+
+try:
+    from pytapo import Tapo
+except ImportError:
+    Tapo = None
 
 # Reuse backend presets from benchmark
 BACKENDS = {
@@ -141,6 +147,47 @@ def open_stream(url, retries=3):
     return None
 
 
+def parse_preset_cycle(raw):
+    """Parse a comma-separated list of preset IDs."""
+    presets = [item.strip() for item in raw.split(",") if item.strip()]
+    if len(presets) < 2:
+        raise ValueError("--preset-cycle requires at least two preset IDs, e.g. 1,2")
+    return presets
+
+
+def make_ptz_client(rtsp_url):
+    """Create a Tapo PTZ client from RTSP URL credentials."""
+    if Tapo is None:
+        raise RuntimeError("pytapo is required for --preset-cycle")
+
+    parsed = urlparse(rtsp_url)
+    if not parsed.hostname or not parsed.username or parsed.password is None:
+        raise ValueError("RTSP URL must include host, username, and password for --preset-cycle")
+
+    return Tapo(
+        parsed.hostname,
+        unquote(parsed.username),
+        unquote(parsed.password),
+        printDebugInformation=False,
+    )
+
+
+def switch_preset(camera, preset_id, settle_seconds):
+    """Move the PTZ camera to a preset and wait for motion to finish."""
+    result = camera.setPreset(str(preset_id))
+    print(f"  Switching to preset {preset_id}: {result}")
+    if settle_seconds > 0:
+        time.sleep(settle_seconds)
+
+
+def preset_suffix(preset_id):
+    """Return a filename-safe preset suffix."""
+    if preset_id is None:
+        return ""
+    cleaned = re.sub(r"[^A-Za-z0-9_-]", "-", str(preset_id))
+    return f"_p{cleaned}"
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Live bird detection from RTSP camera",
@@ -162,6 +209,12 @@ def main():
                         help="JSONL log of all inferences")
     parser.add_argument("--stream", choices=["1", "2"], default="1",
                         help="RTSP stream number (1=high quality, 2=low quality)")
+    parser.add_argument("--preset-cycle",
+                        help="Comma-separated preset IDs to alternate between, e.g. 1,2")
+    parser.add_argument("--preset-dwell", type=float, default=120.0,
+                        help="Seconds to stay on each preset before switching")
+    parser.add_argument("--preset-settle", type=float, default=8.0,
+                        help="Seconds to wait after each preset switch before reconnecting RTSP")
     args = parser.parse_args()
 
     # Apply backend preset
@@ -172,6 +225,7 @@ def main():
 
     # Adjust RTSP URL stream number
     rtsp_url = args.rtsp_url.replace("/stream1", f"/stream{args.stream}")
+    preset_cycle = parse_preset_cycle(args.preset_cycle) if args.preset_cycle else []
 
     os.makedirs(args.save_detections, exist_ok=True)
     log_dir = os.path.dirname(args.log_file)
@@ -187,7 +241,25 @@ def main():
     print(f"  Change:    {args.change_threshold}% threshold to trigger inference")
     if args.no_think:
         print(f"  No-think:  {no_think_method}")
+    if preset_cycle:
+        print(f"  Presets:   {','.join(preset_cycle)} "
+              f"({args.preset_dwell}s dwell, {args.preset_settle}s settle)")
     print()
+
+    ptz = None
+    preset_index = 0
+    current_preset = None
+    next_preset_switch = None
+
+    if preset_cycle:
+        try:
+            ptz = make_ptz_client(rtsp_url)
+            current_preset = preset_cycle[preset_index]
+            switch_preset(ptz, current_preset, args.preset_settle)
+            next_preset_switch = time.time() + args.preset_dwell
+        except Exception as e:
+            print(f"ERROR: Could not initialize preset cycling: {e}", file=sys.stderr)
+            sys.exit(1)
 
     print("Connecting to camera...")
     cap = open_stream(rtsp_url)
@@ -205,6 +277,28 @@ def main():
     try:
         while True:
             now = time.time()
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            if preset_cycle and now >= next_preset_switch:
+                preset_index = (preset_index + 1) % len(preset_cycle)
+                current_preset = preset_cycle[preset_index]
+                print(f"\n  [{timestamp}] Switching view...")
+                try:
+                    switch_preset(ptz, current_preset, args.preset_settle)
+                except Exception as e:
+                    print(f"ERROR: Could not switch to preset {current_preset}: {e}", file=sys.stderr)
+                    break
+
+                cap.release()
+                cap = open_stream(rtsp_url)
+                if cap is None:
+                    print("ERROR: Could not reopen RTSP stream after preset switch", file=sys.stderr)
+                    break
+
+                reference_frame = None
+                last_capture_time = 0
+                next_preset_switch = time.time() + args.preset_dwell
+                continue
 
             # Respect minimum interval
             elapsed = now - last_capture_time
@@ -230,7 +324,6 @@ def main():
                 continue
 
             last_capture_time = now
-            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
             # Check scene change
             if reference_frame is not None:
@@ -263,16 +356,18 @@ def main():
             bird = result["bird"]
             conf = result["confidence"]
             status = "BIRD DETECTED" if bird else "no bird"
+            preset_note = f" [preset {current_preset}]" if current_preset is not None else ""
 
-            print(f"  [{timestamp}] Inference #{inference_count}: {status} "
+            print(f"  [{timestamp}] Inference #{inference_count}{preset_note}: {status} "
                   f"(conf={conf:.2f}, {inference_time:.1f}s)")
 
             # Save frame for every inference (bird or not)
+            suffix = preset_suffix(current_preset)
             if bird:
                 detection_count += 1
-                fname = datetime.now().strftime("bird_%Y%m%d_%H%M%S.jpg")
+                fname = datetime.now().strftime(f"bird{suffix}_%Y%m%d_%H%M%S.jpg")
             else:
-                fname = datetime.now().strftime("nobird_%Y%m%d_%H%M%S.jpg")
+                fname = datetime.now().strftime(f"nobird{suffix}_%Y%m%d_%H%M%S.jpg")
             save_path = os.path.join(args.save_detections, fname)
             cv2.imwrite(save_path, frame)
             print(f"    Saved: {save_path}")
@@ -285,6 +380,8 @@ def main():
                 "inference_time_s": round(inference_time, 2),
                 "inference_num": inference_count,
             }
+            if current_preset is not None:
+                log_entry["preset_id"] = current_preset
             if bird:
                 log_entry["saved_frame"] = fname
             with open(args.log_file, "a") as f:

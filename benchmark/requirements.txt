@@ -3,3 +3,4 @@ pycocotools
 opencv-python
 numpy
 tabulate
+pytapo
