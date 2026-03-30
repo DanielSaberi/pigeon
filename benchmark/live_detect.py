@@ -52,6 +52,24 @@ Rules:
 - "confidence": how sure you are of your answer (0.0 to 1.0)
 - Return ONLY the JSON, no explanation"""
 
+MOTION_SIZE = (320, 180)
+DEFAULT_MOTION_PIXEL_THRESHOLD = 18
+DEFAULT_MIN_BLOB_AREA = 25
+
+# ROI polygons are defined in the downscaled MOTION_SIZE coordinate space.
+# They cover the balcony floor and likely bird perches while excluding the
+# street/background that causes irrelevant motion.
+MOTION_ROI_POLYGONS = {
+    "1": [
+        [(75, 0), (319, 0), (319, 170), (70, 170), (50, 140), (45, 110), (50, 80), (60, 50)],
+        [(35, 4), (75, 0), (86, 45), (70, 90), (50, 115), (28, 90), (22, 50)],
+    ],
+    "2": [
+        [(0, 55), (260, 50), (290, 55), (310, 80), (319, 179), (0, 179)],
+        [(0, 40), (250, 35), (290, 45), (300, 58), (0, 55)],
+    ],
+}
+
 
 def parse_response(text):
     """Parse VLM JSON response into {"bird": bool, "confidence": float}."""
@@ -78,6 +96,40 @@ def parse_response(text):
     confidence = float(data.get("confidence", 0.5))
     confidence = max(0.0, min(1.0, confidence))
     return {"bird": bird, "confidence": confidence}
+
+
+def parse_vlm_max_size(value):
+    """Parse WIDTHxHEIGHT or 'native' for VLM downscaling."""
+    if value.lower() == "native":
+        return None
+
+    match = re.fullmatch(r"(\d+)x(\d+)", value.strip().lower())
+    if not match:
+        raise argparse.ArgumentTypeError(
+            "must be WIDTHxHEIGHT (for example 1600x900) or 'native'"
+        )
+
+    width = int(match.group(1))
+    height = int(match.group(2))
+    if width <= 0 or height <= 0:
+        raise argparse.ArgumentTypeError("width and height must be positive")
+    return (width, height)
+
+
+def prepare_vlm_frame(frame, max_size):
+    """Downscale a frame to fit within max_size for VLM inference."""
+    if max_size is None:
+        return frame
+
+    max_width, max_height = max_size
+    height, width = frame.shape[:2]
+    scale = min(max_width / width, max_height / height, 1.0)
+    if scale >= 1.0:
+        return frame
+
+    new_width = max(1, int(round(width * scale)))
+    new_height = max(1, int(round(height * scale)))
+    return cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
 
 
 def classify_frame(client, model, frame, no_think=False, no_think_method="extra_body"):
@@ -116,20 +168,66 @@ def classify_frame(client, model, frame, no_think=False, no_think_method="extra_
         return None
 
 
-def compute_change(frame_a, frame_b):
-    """Compute mean absolute difference between two frames as a percentage (0-100).
-
-    Both frames are downscaled and converted to grayscale for speed.
-    """
-    small_a = cv2.resize(frame_a, (320, 180))
-    small_b = cv2.resize(frame_b, (320, 180))
-    gray_a = cv2.cvtColor(small_a, cv2.COLOR_BGR2GRAY)
-    gray_b = cv2.cvtColor(small_b, cv2.COLOR_BGR2GRAY)
+def prepare_motion_frame(frame):
+    """Downscale, grayscale, and blur a frame for motion analysis."""
+    small = cv2.resize(frame, MOTION_SIZE)
+    gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
     # Blur to suppress sensor noise and compression artifacts
-    gray_a = cv2.GaussianBlur(gray_a, (21, 21), 0)
-    gray_b = cv2.GaussianBlur(gray_b, (21, 21), 0)
-    diff = cv2.absdiff(gray_a, gray_b)
-    return (diff.mean() / 255.0) * 100.0
+    return cv2.GaussianBlur(gray, (21, 21), 0)
+
+
+def build_motion_mask(preset_id, shape):
+    """Build a binary ROI mask for a preset in motion-analysis space."""
+    polygons = MOTION_ROI_POLYGONS.get(str(preset_id))
+    mask = np.zeros(shape, dtype=np.uint8)
+    if not polygons:
+        mask.fill(255)
+        return mask
+
+    for polygon in polygons:
+        pts = np.array(polygon, dtype=np.int32)
+        cv2.fillPoly(mask, [pts], 255)
+    return mask
+
+
+def analyze_motion(reference_motion, frame, preset_id, mask_cache,
+                   pixel_threshold=DEFAULT_MOTION_PIXEL_THRESHOLD,
+                   min_blob_area=DEFAULT_MIN_BLOB_AREA):
+    """Analyze frame-to-frame motion inside the preset ROI."""
+    current_motion = prepare_motion_frame(frame)
+    mask_key = (str(preset_id) if preset_id is not None else "__default__", current_motion.shape)
+    mask = mask_cache.get(mask_key)
+    if mask is None:
+        mask = build_motion_mask(preset_id, current_motion.shape)
+        mask_cache[mask_key] = mask
+
+    diff = cv2.absdiff(reference_motion, current_motion)
+    masked_diff = cv2.bitwise_and(diff, diff, mask=mask)
+
+    roi_pixels = max(1, cv2.countNonZero(mask))
+    change_pct = (float(masked_diff.sum()) / (255.0 * roi_pixels)) * 100.0
+
+    _, binary = cv2.threshold(masked_diff, pixel_threshold, 255, cv2.THRESH_BINARY)
+    binary = cv2.morphologyEx(binary, cv2.MORPH_OPEN, np.ones((3, 3), dtype=np.uint8))
+    binary = cv2.dilate(binary, np.ones((5, 5), dtype=np.uint8), iterations=1)
+
+    contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    blob_areas = []
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area >= min_blob_area:
+            blob_areas.append(int(round(area)))
+
+    largest_blob_area = max(blob_areas, default=0)
+    triggered = bool(blob_areas)
+
+    return {
+        "prepared": current_motion,
+        "change_pct": change_pct,
+        "blob_count": len(blob_areas),
+        "largest_blob_area": largest_blob_area,
+        "triggered": triggered,
+    }
 
 
 def open_stream(url, retries=3):
@@ -201,6 +299,10 @@ def main():
                         help="Minimum seconds between frame captures")
     parser.add_argument("--change-threshold", type=float, default=1.5,
                         help="Minimum scene change (%%) to trigger VLM inference")
+    parser.add_argument("--motion-pixel-threshold", type=int, default=DEFAULT_MOTION_PIXEL_THRESHOLD,
+                        help="Per-pixel diff threshold for blob-based motion gating")
+    parser.add_argument("--min-blob-area", type=int, default=DEFAULT_MIN_BLOB_AREA,
+                        help="Minimum connected motion blob area in motion-analysis pixels")
     parser.add_argument("--no-think", action="store_true",
                         help="Disable thinking mode")
     parser.add_argument("--save-detections", default="detections",
@@ -209,6 +311,8 @@ def main():
                         help="JSONL log of all inferences")
     parser.add_argument("--stream", choices=["1", "2"], default="1",
                         help="RTSP stream number (1=high quality, 2=low quality)")
+    parser.add_argument("--vlm-max-size", type=parse_vlm_max_size, default=(1600, 900),
+                        help="Maximum WIDTHxHEIGHT sent to the VLM, or 'native' to disable downscaling")
     parser.add_argument("--preset-cycle",
                         help="Comma-separated preset IDs to alternate between, e.g. 1,2")
     parser.add_argument("--preset-dwell", type=float, default=120.0,
@@ -238,7 +342,13 @@ def main():
     print(f"  Camera:    {rtsp_url.split('@')[1]}")
     print(f"  Backend:   {args.backend} ({model})")
     print(f"  Interval:  {args.interval}s min between captures")
-    print(f"  Change:    {args.change_threshold}% threshold to trigger inference")
+    if args.vlm_max_size is None:
+        print("  VLM input: native")
+    else:
+        print(f"  VLM input: max {args.vlm_max_size[0]}x{args.vlm_max_size[1]}")
+    print(f"  Motion:    ROI blobs (pixel>{args.motion_pixel_threshold}, "
+          f"min area {args.min_blob_area}px)")
+    print(f"  Change:    {args.change_threshold}% mean-change threshold")
     if args.no_think:
         print(f"  No-think:  {no_think_method}")
     if preset_cycle:
@@ -268,7 +378,8 @@ def main():
         sys.exit(1)
     print("Connected. Watching for birds...\n")
 
-    reference_frame = None
+    motion_references = {}
+    mask_cache = {}
     last_capture_time = 0
     inference_count = 0
     detection_count = 0
@@ -295,7 +406,6 @@ def main():
                     print("ERROR: Could not reopen RTSP stream after preset switch", file=sys.stderr)
                     break
 
-                reference_frame = None
                 last_capture_time = 0
                 next_preset_switch = time.time() + args.preset_dwell
                 continue
@@ -316,7 +426,6 @@ def main():
                 if cap is None:
                     print("ERROR: Could not reconnect", file=sys.stderr)
                     break
-                reference_frame = None
                 continue
 
             ret, frame = cap.retrieve()
@@ -324,26 +433,48 @@ def main():
                 continue
 
             last_capture_time = now
+            motion_key = current_preset if current_preset is not None else "__default__"
+            reference_motion = motion_references.get(motion_key)
 
             # Check scene change
-            if reference_frame is not None:
-                change = compute_change(reference_frame, frame)
-                if change < args.change_threshold:
+            if reference_motion is not None:
+                motion = analyze_motion(
+                    reference_motion,
+                    frame,
+                    current_preset,
+                    mask_cache,
+                    pixel_threshold=args.motion_pixel_threshold,
+                    min_blob_area=args.min_blob_area,
+                )
+                change = motion["change_pct"]
+                blob_count = motion["blob_count"]
+                largest_blob_area = motion["largest_blob_area"]
+                triggered = motion["triggered"] and (
+                    change >= args.change_threshold or
+                    largest_blob_area >= args.min_blob_area * 2
+                )
+
+                if not triggered:
                     skipped_count += 1
                     if skipped_count % 20 == 0:
                         print(f"  [{timestamp}] ... scene stable ({skipped_count} frames skipped, "
-                              f"last change: {change:.2f}%)")
+                              f"last change: {change:.2f}%, blobs: {blob_count}, "
+                              f"largest: {largest_blob_area}px)")
                     continue
 
-                print(f"  [{timestamp}] Scene change: {change:.2f}% — running inference...")
+                print(f"  [{timestamp}] Motion: {change:.2f}% mean change, "
+                      f"{blob_count} blob(s), largest {largest_blob_area}px — running inference...")
             else:
+                motion = {"prepared": prepare_motion_frame(frame)}
                 print(f"  [{timestamp}] First frame — running inference...")
 
-            reference_frame = frame.copy()
+            motion_references[motion_key] = motion["prepared"]
 
             # Run VLM inference
+            vlm_frame = prepare_vlm_frame(frame, args.vlm_max_size)
+            vlm_height, vlm_width = vlm_frame.shape[:2]
             t0 = time.time()
-            result = classify_frame(client, model, frame,
+            result = classify_frame(client, model, vlm_frame,
                                     no_think=args.no_think,
                                     no_think_method=no_think_method)
             inference_time = time.time() - t0
@@ -379,6 +510,10 @@ def main():
                 "confidence": conf,
                 "inference_time_s": round(inference_time, 2),
                 "inference_num": inference_count,
+                "vlm_frame_size": [vlm_width, vlm_height],
+                "motion_change_pct": round(change, 3) if reference_motion is not None else None,
+                "motion_blob_count": blob_count if reference_motion is not None else None,
+                "largest_blob_area": largest_blob_area if reference_motion is not None else None,
             }
             if current_preset is not None:
                 log_entry["preset_id"] = current_preset
