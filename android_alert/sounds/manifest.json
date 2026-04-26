@@ -1,0 +1,112 @@
+[
+  {
+    "file": "sounds/raven_peregrine.mp3",
+    "title": "Raven and Peregrine Falcon",
+    "category": "predator/bird alarm",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-peregrine-raven_bryce.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-PeregrineandRaven.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -12.2,
+    "peak_db": -1.2,
+    "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/bald_eagle.mp3",
+    "title": "Bald Eagle",
+    "category": "predator call",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-bald-eagle.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BaldEagleYELL.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -13.5,
+    "peak_db": -1.3,
+    "duration_seconds": 2.456
+  },
+  {
+    "file": "sounds/osprey.mp3",
+    "title": "Osprey",
+    "category": "predator call",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-osprey.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-OspreyGRTE.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -6.8,
+    "peak_db": -0.8,
+    "duration_seconds": 3.474
+  },
+  {
+    "file": "sounds/spotted_owl.mp3",
+    "title": "Spotted Owl",
+    "category": "predator call",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-spotted-owl.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-SpottedOwlYOSE.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -14.6,
+    "peak_db": -1.3,
+    "duration_seconds": 5.146
+  },
+  {
+    "file": "sounds/common_raven.mp3",
+    "title": "Common Raven",
+    "category": "alarm/harassment call",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-common-raven.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CommonRavenGRTE.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -8.0,
+    "peak_db": -1.3,
+    "duration_seconds": 5.669
+  },
+  {
+    "file": "sounds/coyotes.mp3",
+    "title": "Coyotes",
+    "category": "predator/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-coyotes.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CoyotesMOJA.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -12.9,
+    "peak_db": -1.3,
+    "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/coyote_chase.mp3",
+    "title": "Coyote Chase",
+    "category": "predator/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-coyote-chase.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CoyotesChaseGRSA.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -11.7,
+    "peak_db": -1.2,
+    "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/wolf.mp3",
+    "title": "Wolf",
+    "category": "predator/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-wolf.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-WolfDENA.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -12.8,
+    "peak_db": -1.8,
+    "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/car_alarm.mp3",
+    "title": "Car Alarm",
+    "category": "startle noise",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-car-alarm.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CarAlarmKEFJ.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -9.4,
+    "peak_db": -1.2,
+    "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/siren.mp3",
+    "title": "Siren",
+    "category": "startle noise",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-siren.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-SirenGRTE.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -13.8,
+    "peak_db": -1.3,
+    "duration_seconds": 7.027
+  }
+]

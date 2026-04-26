@@ -8,7 +8,17 @@ benchmark/data/
 benchmark/models/
 
 # Results (regeneratable)
+detections/
 benchmark/results/
+benchmark/detections/
+benchmark/ptz_snaps/
+benchmark/*.log
+
+# OS/editor noise
+.DS_Store
+
+# Download cache; normalized alert outputs live in android_alert/sounds/
+android_alert/sound_sources/
 
 # Claude Code
 .claude/

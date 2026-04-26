@@ -14,6 +14,9 @@ import json
 import numpy as np
 import os
 import re
+import requests
+import shlex
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -168,6 +171,51 @@ def classify_frame(client, model, frame, no_think=False, no_think_method="extra_
         return None
 
 
+def trigger_alert(url, token=None, timeout=1.0):
+    """Send a best-effort HTTP alert trigger."""
+    headers = {}
+    if token:
+        headers["X-Alert-Token"] = token
+
+    try:
+        resp = requests.post(url, headers=headers, timeout=timeout)
+        return {
+            "ok": 200 <= resp.status_code < 300,
+            "status_code": resp.status_code,
+            "error": None,
+        }
+    except requests.RequestException as e:
+        return {
+            "ok": False,
+            "status_code": None,
+            "error": str(e)[:200],
+        }
+
+
+def trigger_command_alert(command, timeout=5.0):
+    """Run a best-effort local alert command."""
+    try:
+        result = subprocess.run(
+            shlex.split(command),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+        return {
+            "ok": result.returncode == 0,
+            "returncode": result.returncode,
+            "stdout": result.stdout[-500:].strip(),
+            "stderr": result.stderr[-500:].strip(),
+        }
+    except (OSError, subprocess.TimeoutExpired, ValueError) as e:
+        return {
+            "ok": False,
+            "returncode": None,
+            "error": str(e)[:200],
+        }
+
+
 def prepare_motion_frame(frame):
     """Downscale, grayscale, and blur a frame for motion analysis."""
     small = cv2.resize(frame, MOTION_SIZE)
@@ -319,6 +367,16 @@ def main():
                         help="Seconds to stay on each preset before switching")
     parser.add_argument("--preset-settle", type=float, default=8.0,
                         help="Seconds to wait after each preset switch before reconnecting RTSP")
+    parser.add_argument("--alert-url",
+                        help="HTTP endpoint to POST when a bird is detected")
+    parser.add_argument("--alert-token",
+                        help="Optional token sent as X-Alert-Token to the alert endpoint")
+    parser.add_argument("--alert-command",
+                        help="Local command to run when a bird is detected")
+    parser.add_argument("--alert-cooldown", type=float, default=60.0,
+                        help="Minimum seconds between alert triggers")
+    parser.add_argument("--alert-timeout", type=float, default=1.0,
+                        help="Timeout in seconds for alert triggers")
     args = parser.parse_args()
 
     # Apply backend preset
@@ -354,6 +412,10 @@ def main():
     if preset_cycle:
         print(f"  Presets:   {','.join(preset_cycle)} "
               f"({args.preset_dwell}s dwell, {args.preset_settle}s settle)")
+    if args.alert_url:
+        print(f"  Alert:     {args.alert_url} ({args.alert_cooldown}s cooldown)")
+    if args.alert_command:
+        print(f"  Alert cmd: {args.alert_command} ({args.alert_cooldown}s cooldown)")
     print()
 
     ptz = None
@@ -384,6 +446,7 @@ def main():
     inference_count = 0
     detection_count = 0
     skipped_count = 0
+    last_alert_time = 0.0
 
     try:
         while True:
@@ -488,6 +551,7 @@ def main():
             conf = result["confidence"]
             status = "BIRD DETECTED" if bird else "no bird"
             preset_note = f" [preset {current_preset}]" if current_preset is not None else ""
+            alert_result = None
 
             print(f"  [{timestamp}] Inference #{inference_count}{preset_note}: {status} "
                   f"(conf={conf:.2f}, {inference_time:.1f}s)")
@@ -499,6 +563,37 @@ def main():
                 fname = datetime.now().strftime(f"bird{suffix}_%Y%m%d_%H%M%S.jpg")
             else:
                 fname = datetime.now().strftime(f"nobird{suffix}_%Y%m%d_%H%M%S.jpg")
+
+            if bird and (args.alert_url or args.alert_command):
+                since_alert = time.time() - last_alert_time
+                if since_alert >= args.alert_cooldown:
+                    alert_result = {}
+                    if args.alert_url:
+                        alert_result["http"] = trigger_alert(
+                            args.alert_url,
+                            token=args.alert_token,
+                            timeout=args.alert_timeout,
+                        )
+                    if args.alert_command:
+                        alert_result["command"] = trigger_command_alert(
+                            args.alert_command,
+                            timeout=args.alert_timeout,
+                        )
+
+                    alert_ok = any(result.get("ok") for result in alert_result.values())
+                    if alert_ok:
+                        last_alert_time = time.time()
+                        print("    Alert triggered")
+                    else:
+                        print(f"    Alert failed: {alert_result}")
+                else:
+                    alert_result = {
+                        "ok": False,
+                        "skipped": "cooldown",
+                        "remaining_s": round(args.alert_cooldown - since_alert, 1),
+                    }
+                    print(f"    Alert skipped: cooldown ({alert_result['remaining_s']}s remaining)")
+
             save_path = os.path.join(args.save_detections, fname)
             cv2.imwrite(save_path, frame)
             print(f"    Saved: {save_path}")
@@ -519,6 +614,8 @@ def main():
                 log_entry["preset_id"] = current_preset
             if bird:
                 log_entry["saved_frame"] = fname
+            if alert_result is not None:
+                log_entry["alert"] = alert_result
             with open(args.log_file, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
 
