@@ -19,9 +19,10 @@ python benchmark/live_detect.py \
   --alert-cooldown 60
 ```
 
-After a bird detection, the detector saves every interval-sampled frame for 5
-minutes by default as `postbird_*.jpg`. Configure this with
-`--post-detect-save-seconds`; use `0` to disable it.
+After a bird detection, the detector saves a sampled-frame MP4 clip for 5
+minutes by default as `postbird_*.mp4`. Configure the duration with
+`--post-detect-save-seconds`; use `0` or `--post-detect-mode off` to disable it.
+Use `--post-detect-mode frames` or `both` if JPEG follow-up frames are needed.
 
 Offline benchmark:
 
@@ -46,10 +47,11 @@ The Tapo camera supports only one RTSP session. Close the Tapo app before
 starting live detection.
 
 The RTSP stream exposes audio, but the live detector currently uses OpenCV,
-which captures video frames only. Recording audio would require moving capture
-to a single ffmpeg-based pipeline; starting a second ffmpeg RTSP recorder while
-live detection is running is likely to fail because of the one-session camera
-limit.
+which captures video frames only. The `postbird_*.mp4` files are sampled-frame
+video clips without audio, not continuous camera recordings. Recording audio
+would require moving capture to a single ffmpeg-based pipeline; starting a
+second ffmpeg RTSP recorder while live detection is running is likely to fail
+because of the one-session camera limit.
 
 Detection output is intentionally ignored by git:
 

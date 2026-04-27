@@ -353,6 +353,31 @@ def save_frame(save_dir, prefix, preset_id, frame):
     return fname, save_path
 
 
+def open_video_writer(save_dir, prefix, preset_id, frame, fps):
+    """Open an MP4 writer for sampled follow-up frames."""
+    suffix = preset_suffix(preset_id)
+    fname = f"{prefix}{suffix}_{frame_timestamp()}.mp4"
+    save_path = os.path.join(save_dir, fname)
+    height, width = frame.shape[:2]
+    writer = cv2.VideoWriter(
+        save_path,
+        cv2.VideoWriter_fourcc(*"mp4v"),
+        fps,
+        (width, height),
+    )
+    if not writer.isOpened():
+        raise RuntimeError(f"Could not open video writer for {save_path}")
+    return writer, fname, save_path, (width, height)
+
+
+def write_video_frame(writer, frame, size):
+    """Write a frame, resizing if the stream dimensions changed."""
+    width, height = size
+    if frame.shape[1] != width or frame.shape[0] != height:
+        frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+    writer.write(frame)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Live bird detection from RTSP camera",
@@ -397,8 +422,17 @@ def main():
     parser.add_argument("--alert-timeout", type=float, default=1.0,
                         help="Timeout in seconds for alert triggers")
     parser.add_argument("--post-detect-save-seconds", type=float, default=300.0,
-                        help="Seconds after a bird detection to save every sampled frame; 0 disables")
+                        help="Seconds after a bird detection to save follow-up media; 0 disables")
+    parser.add_argument("--post-detect-mode", choices=["video", "frames", "both", "off"], default="video",
+                        help="Follow-up media saved after bird detections")
+    parser.add_argument("--post-detect-video-fps", type=float, default=1.0,
+                        help="FPS for post-detection sampled-frame MP4 clips")
     args = parser.parse_args()
+    post_detect_enabled = args.post_detect_save_seconds > 0 and args.post_detect_mode != "off"
+    save_post_detect_frames = args.post_detect_mode in {"frames", "both"}
+    save_post_detect_video = args.post_detect_mode in {"video", "both"}
+    if args.post_detect_video_fps <= 0:
+        parser.error("--post-detect-video-fps must be positive")
 
     # Apply backend preset
     preset = BACKENDS[args.backend]
@@ -437,8 +471,13 @@ def main():
         print(f"  Alert:     {args.alert_url} ({args.alert_cooldown}s cooldown)")
     if args.alert_command:
         print(f"  Alert cmd: {args.alert_command} ({args.alert_cooldown}s cooldown)")
-    if args.post_detect_save_seconds > 0:
-        print(f"  Follow-up: save every sampled frame for "
+    if post_detect_enabled:
+        detail = []
+        if save_post_detect_video:
+            detail.append(f"MP4 at {args.post_detect_video_fps:g} fps")
+        if save_post_detect_frames:
+            detail.append("JPEG frames")
+        print(f"  Follow-up: save {' and '.join(detail)} for "
               f"{args.post_detect_save_seconds}s after bird detections")
     print()
 
@@ -473,6 +512,10 @@ def main():
     last_alert_time = 0.0
     post_detect_save_until = 0.0
     post_detect_frame_count = 0
+    post_detect_video_writer = None
+    post_detect_video_path = None
+    post_detect_video_fname = None
+    post_detect_video_size = None
 
     try:
         while True:
@@ -523,23 +566,35 @@ def main():
 
             last_capture_time = now
             if post_detect_save_until > 0 and now >= post_detect_save_until:
-                print(f"  [{timestamp}] Follow-up frame saving ended "
-                      f"({post_detect_frame_count} frames saved)")
+                if post_detect_video_writer is not None:
+                    post_detect_video_writer.release()
+                    post_detect_video_writer = None
+                media_note = f", video: {post_detect_video_path}" if post_detect_video_path else ""
+                print(f"  [{timestamp}] Follow-up saving ended "
+                      f"({post_detect_frame_count} sampled frames{media_note})")
                 post_detect_save_until = 0.0
                 post_detect_frame_count = 0
+                post_detect_video_path = None
+                post_detect_video_fname = None
+                post_detect_video_size = None
 
             if post_detect_save_until > 0:
-                _, post_detect_save_path = save_frame(
-                    args.save_detections,
-                    "postbird",
-                    current_preset,
-                    frame,
-                )
+                post_detect_save_path = None
+                if save_post_detect_video and post_detect_video_writer is not None:
+                    write_video_frame(post_detect_video_writer, frame, post_detect_video_size)
+                if save_post_detect_frames:
+                    _, post_detect_save_path = save_frame(
+                        args.save_detections,
+                        "postbird",
+                        current_preset,
+                        frame,
+                    )
                 post_detect_frame_count += 1
                 if post_detect_frame_count == 1 or post_detect_frame_count % 20 == 0:
                     remaining = int(round(post_detect_save_until - now))
-                    print(f"  [{timestamp}] Follow-up saved #{post_detect_frame_count} "
-                          f"({remaining}s remaining): {post_detect_save_path}")
+                    target = post_detect_save_path or post_detect_video_path
+                    print(f"  [{timestamp}] Follow-up sampled #{post_detect_frame_count} "
+                          f"({remaining}s remaining): {target}")
 
             motion_key = current_preset if current_preset is not None else "__default__"
             reference_motion = motion_references.get(motion_key)
@@ -605,13 +660,29 @@ def main():
             if bird:
                 detection_count += 1
                 fname, save_path = save_frame(args.save_detections, "bird", current_preset, frame)
-                if args.post_detect_save_seconds > 0:
+                if post_detect_enabled:
+                    if save_post_detect_video and post_detect_video_writer is None:
+                        (
+                            post_detect_video_writer,
+                            post_detect_video_fname,
+                            post_detect_video_path,
+                            post_detect_video_size,
+                        ) = open_video_writer(
+                            args.save_detections,
+                            "postbird",
+                            current_preset,
+                            frame,
+                            args.post_detect_video_fps,
+                        )
+                        write_video_frame(post_detect_video_writer, frame, post_detect_video_size)
+                        post_detect_frame_count = 1
                     post_detect_save_until = max(
                         post_detect_save_until,
                         time.time() + args.post_detect_save_seconds,
                     )
                     until_text = datetime.fromtimestamp(post_detect_save_until).strftime("%Y-%m-%d %H:%M:%S")
-                    print(f"    Follow-up frame saving active until {until_text}")
+                    media_note = f" video={post_detect_video_path}" if post_detect_video_path else ""
+                    print(f"    Follow-up saving active until {until_text}{media_note}")
             else:
                 fname, save_path = save_frame(args.save_detections, "nobird", current_preset, frame)
 
@@ -663,8 +734,11 @@ def main():
                 log_entry["preset_id"] = current_preset
             if bird:
                 log_entry["saved_frame"] = fname
-                if args.post_detect_save_seconds > 0:
+                if post_detect_enabled:
                     log_entry["post_detect_save_until"] = round(post_detect_save_until, 3)
+                    log_entry["post_detect_mode"] = args.post_detect_mode
+                    if post_detect_video_fname:
+                        log_entry["post_detect_video"] = post_detect_video_fname
             if alert_result is not None:
                 log_entry["alert"] = alert_result
             with open(args.log_file, "a") as f:
@@ -678,6 +752,8 @@ def main():
         print(f"  Log: {args.log_file}")
 
     finally:
+        if post_detect_video_writer is not None:
+            post_detect_video_writer.release()
         cap.release()
 
 
