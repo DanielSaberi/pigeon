@@ -125,7 +125,7 @@ curl -fsS http://PHONE_IP:8765/health
 Expected response after the random sound set is active:
 
 ```json
-{"ok":true,"sounds":10,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
+{"ok":true,"sounds":8,"available_sounds":10,"min_duration_s":5.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
 ```
 
 Trigger one alert:
@@ -231,10 +231,12 @@ Environment overrides in Termux:
 export BIRD_ALERT_DIR=/sdcard/Download/pigeon-setup/sounds
 export BIRD_ALERT_FILE=/sdcard/Download/pigeon-setup/alert.mp3
 export BIRD_ALERT_COOLDOWN=2
+export BIRD_ALERT_MIN_DURATION=5.0
 ```
 
 The receiver avoids repeating the exact same file twice in a row when multiple
-sounds are available.
+sounds are available. If `sounds/manifest.json` is present, the default setup
+skips clips shorter than 5 seconds.
 
 ## Troubleshooting
 

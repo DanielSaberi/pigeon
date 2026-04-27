@@ -9,6 +9,7 @@ import random
 import subprocess
 import threading
 import time
+import json
 from pathlib import Path
 
 from flask import Flask, abort, request
@@ -26,6 +27,7 @@ ALERT_FILE = os.environ.get(
     "/sdcard/Download/pigeon-setup/alert.mp3",
 )
 MIN_SECONDS_BETWEEN_ALERTS = float(os.environ.get("BIRD_ALERT_COOLDOWN", "2"))
+MIN_ALERT_DURATION_SECONDS = float(os.environ.get("BIRD_ALERT_MIN_DURATION", "5.0"))
 SUPPORTED_SUFFIXES = {".mp3", ".m4a", ".ogg", ".wav"}
 
 last_played = 0.0
@@ -34,7 +36,7 @@ last_alert_record = None
 alert_lock = threading.Lock()
 
 
-def list_alert_files():
+def list_all_alert_files():
     alert_dir = Path(ALERT_DIR)
     if not alert_dir.is_dir():
         return []
@@ -44,6 +46,40 @@ def list_alert_files():
         for path in alert_dir.iterdir()
         if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
     )
+
+
+def manifest_durations():
+    manifest_path = Path(ALERT_DIR) / "manifest.json"
+    if not manifest_path.is_file():
+        return {}
+
+    try:
+        entries = json.loads(manifest_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    durations = {}
+    for entry in entries:
+        try:
+            durations[Path(entry["file"]).name] = float(entry["duration_seconds"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return durations
+
+
+def list_alert_files():
+    files = list_all_alert_files()
+    if MIN_ALERT_DURATION_SECONDS <= 0:
+        return files
+
+    durations = manifest_durations()
+    if not durations:
+        return files
+
+    return [
+        path for path in files
+        if durations.get(Path(path).name, MIN_ALERT_DURATION_SECONDS) >= MIN_ALERT_DURATION_SECONDS
+    ]
 
 
 def choose_alert_file():
@@ -109,8 +145,15 @@ def bird():
 
 @app.get("/health")
 def health():
+    all_files = list_all_alert_files()
     files = list_alert_files()
-    return {"ok": True, "sounds": len(files), "alert_dir": ALERT_DIR}
+    return {
+        "ok": True,
+        "sounds": len(files),
+        "available_sounds": len(all_files),
+        "min_duration_s": MIN_ALERT_DURATION_SECONDS,
+        "alert_dir": ALERT_DIR,
+    }
 
 
 @app.get("/last")
