@@ -137,6 +137,18 @@ curl -fsS -X POST http://PHONE_IP:8765/bird \
 
 If you did not set `BIRD_ALERT_TOKEN`, omit the header.
 
+The response includes the selected sound file:
+
+```json
+{"ok":true,"alert":{"file":"common_raven.mp3","path":"/sdcard/Download/pigeon-setup/sounds/common_raven.mp3","timestamp":1777280000.0}}
+```
+
+Check the last selected file:
+
+```sh
+curl -fsS http://PHONE_IP:8765/last
+```
+
 Set Android media volume to max over ADB if needed:
 
 ```sh

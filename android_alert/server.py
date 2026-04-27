@@ -30,6 +30,7 @@ SUPPORTED_SUFFIXES = {".mp3", ".m4a", ".ogg", ".wav"}
 
 last_played = 0.0
 last_alert_file = ""
+last_alert_record = None
 alert_lock = threading.Lock()
 
 
@@ -64,8 +65,7 @@ def mime_type_for(path):
     return mimetypes.guess_type(path)[0] or "audio/*"
 
 
-def play_alert():
-    alert_file = choose_alert_file()
+def play_alert(alert_file):
     subprocess.run(
         [
             "am",
@@ -86,24 +86,36 @@ def play_alert():
 
 @app.post("/bird")
 def bird():
-    global last_played
+    global last_played, last_alert_record
 
     if TOKEN and request.headers.get("X-Alert-Token") != TOKEN:
         abort(403)
 
     now = time.time()
     if now - last_played < MIN_SECONDS_BETWEEN_ALERTS:
-        return {"ok": True, "skipped": "rate_limited"}
+        return {"ok": True, "skipped": "rate_limited", "last_alert": last_alert_record}
 
+    alert_file = choose_alert_file()
+    last_alert_record = {
+        "file": Path(alert_file).name,
+        "path": alert_file,
+        "timestamp": now,
+    }
     last_played = now
-    threading.Thread(target=play_alert, daemon=True).start()
-    return {"ok": True}
+    print(f"Playing alert: {alert_file}", flush=True)
+    threading.Thread(target=play_alert, args=(alert_file,), daemon=True).start()
+    return {"ok": True, "alert": last_alert_record}
 
 
 @app.get("/health")
 def health():
     files = list_alert_files()
     return {"ok": True, "sounds": len(files), "alert_dir": ALERT_DIR}
+
+
+@app.get("/last")
+def last():
+    return {"ok": True, "last_alert": last_alert_record}
 
 
 if __name__ == "__main__":

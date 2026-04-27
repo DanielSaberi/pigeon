@@ -179,9 +179,14 @@ def trigger_alert(url, token=None, timeout=1.0):
 
     try:
         resp = requests.post(url, headers=headers, timeout=timeout)
+        try:
+            response = resp.json()
+        except ValueError:
+            response = resp.text[:500]
         return {
             "ok": 200 <= resp.status_code < 300,
             "status_code": resp.status_code,
+            "response": response,
             "error": None,
         }
     except requests.RequestException as e:
