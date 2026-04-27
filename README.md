@@ -19,6 +19,10 @@ python benchmark/live_detect.py \
   --alert-cooldown 60
 ```
 
+After a bird detection, the detector saves every interval-sampled frame for 5
+minutes by default as `postbird_*.jpg`. Configure this with
+`--post-detect-save-seconds`; use `0` to disable it.
+
 Offline benchmark:
 
 ```sh
@@ -40,6 +44,12 @@ TODO.md                         follow-up implementation notes
 
 The Tapo camera supports only one RTSP session. Close the Tapo app before
 starting live detection.
+
+The RTSP stream exposes audio, but the live detector currently uses OpenCV,
+which captures video frames only. Recording audio would require moving capture
+to a single ffmpeg-based pipeline; starting a second ffmpeg RTSP recorder while
+live detection is running is likely to fail because of the one-session camera
+limit.
 
 Detection output is intentionally ignored by git:
 

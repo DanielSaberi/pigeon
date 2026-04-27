@@ -334,6 +334,20 @@ def preset_suffix(preset_id):
     return f"_p{cleaned}"
 
 
+def frame_timestamp():
+    """Return a filename-safe timestamp with milliseconds."""
+    return datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+
+
+def save_frame(save_dir, prefix, preset_id, frame):
+    """Save a frame with a consistent preset-aware filename."""
+    suffix = preset_suffix(preset_id)
+    fname = f"{prefix}{suffix}_{frame_timestamp()}.jpg"
+    save_path = os.path.join(save_dir, fname)
+    cv2.imwrite(save_path, frame)
+    return fname, save_path
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Live bird detection from RTSP camera",
@@ -377,6 +391,8 @@ def main():
                         help="Minimum seconds between alert triggers")
     parser.add_argument("--alert-timeout", type=float, default=1.0,
                         help="Timeout in seconds for alert triggers")
+    parser.add_argument("--post-detect-save-seconds", type=float, default=300.0,
+                        help="Seconds after a bird detection to save every sampled frame; 0 disables")
     args = parser.parse_args()
 
     # Apply backend preset
@@ -416,6 +432,9 @@ def main():
         print(f"  Alert:     {args.alert_url} ({args.alert_cooldown}s cooldown)")
     if args.alert_command:
         print(f"  Alert cmd: {args.alert_command} ({args.alert_cooldown}s cooldown)")
+    if args.post_detect_save_seconds > 0:
+        print(f"  Follow-up: save every sampled frame for "
+              f"{args.post_detect_save_seconds}s after bird detections")
     print()
 
     ptz = None
@@ -447,6 +466,8 @@ def main():
     detection_count = 0
     skipped_count = 0
     last_alert_time = 0.0
+    post_detect_save_until = 0.0
+    post_detect_frame_count = 0
 
     try:
         while True:
@@ -496,6 +517,25 @@ def main():
                 continue
 
             last_capture_time = now
+            if post_detect_save_until > 0 and now >= post_detect_save_until:
+                print(f"  [{timestamp}] Follow-up frame saving ended "
+                      f"({post_detect_frame_count} frames saved)")
+                post_detect_save_until = 0.0
+                post_detect_frame_count = 0
+
+            if post_detect_save_until > 0:
+                _, post_detect_save_path = save_frame(
+                    args.save_detections,
+                    "postbird",
+                    current_preset,
+                    frame,
+                )
+                post_detect_frame_count += 1
+                if post_detect_frame_count == 1 or post_detect_frame_count % 20 == 0:
+                    remaining = int(round(post_detect_save_until - now))
+                    print(f"  [{timestamp}] Follow-up saved #{post_detect_frame_count} "
+                          f"({remaining}s remaining): {post_detect_save_path}")
+
             motion_key = current_preset if current_preset is not None else "__default__"
             reference_motion = motion_references.get(motion_key)
 
@@ -557,12 +597,18 @@ def main():
                   f"(conf={conf:.2f}, {inference_time:.1f}s)")
 
             # Save frame for every inference (bird or not)
-            suffix = preset_suffix(current_preset)
             if bird:
                 detection_count += 1
-                fname = datetime.now().strftime(f"bird{suffix}_%Y%m%d_%H%M%S.jpg")
+                fname, save_path = save_frame(args.save_detections, "bird", current_preset, frame)
+                if args.post_detect_save_seconds > 0:
+                    post_detect_save_until = max(
+                        post_detect_save_until,
+                        time.time() + args.post_detect_save_seconds,
+                    )
+                    until_text = datetime.fromtimestamp(post_detect_save_until).strftime("%Y-%m-%d %H:%M:%S")
+                    print(f"    Follow-up frame saving active until {until_text}")
             else:
-                fname = datetime.now().strftime(f"nobird{suffix}_%Y%m%d_%H%M%S.jpg")
+                fname, save_path = save_frame(args.save_detections, "nobird", current_preset, frame)
 
             if bird and (args.alert_url or args.alert_command):
                 since_alert = time.time() - last_alert_time
@@ -594,8 +640,6 @@ def main():
                     }
                     print(f"    Alert skipped: cooldown ({alert_result['remaining_s']}s remaining)")
 
-            save_path = os.path.join(args.save_detections, fname)
-            cv2.imwrite(save_path, frame)
             print(f"    Saved: {save_path}")
 
             # Log to JSONL
@@ -614,6 +658,8 @@ def main():
                 log_entry["preset_id"] = current_preset
             if bird:
                 log_entry["saved_frame"] = fname
+                if args.post_detect_save_seconds > 0:
+                    log_entry["post_detect_save_until"] = round(post_detect_save_until, 3)
             if alert_result is not None:
                 log_entry["alert"] = alert_result
             with open(args.log_file, "a") as f:
