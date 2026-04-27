@@ -28,6 +28,7 @@ ALERT_FILE = os.environ.get(
 )
 MIN_SECONDS_BETWEEN_ALERTS = float(os.environ.get("BIRD_ALERT_COOLDOWN", "2"))
 MIN_ALERT_DURATION_SECONDS = float(os.environ.get("BIRD_ALERT_MIN_DURATION", "5.0"))
+ALERT_KIND = os.environ.get("BIRD_ALERT_KIND", "alert_sequence")
 SUPPORTED_SUFFIXES = {".mp3", ".m4a", ".ogg", ".wav"}
 
 last_played = 0.0
@@ -48,18 +49,20 @@ def list_all_alert_files():
     )
 
 
-def manifest_durations():
+def manifest_entries():
     manifest_path = Path(ALERT_DIR) / "manifest.json"
     if not manifest_path.is_file():
-        return {}
+        return []
 
     try:
-        entries = json.loads(manifest_path.read_text())
+        return json.loads(manifest_path.read_text())
     except (OSError, json.JSONDecodeError):
-        return {}
+        return []
 
+
+def manifest_durations(entries=None):
     durations = {}
-    for entry in entries:
+    for entry in entries if entries is not None else manifest_entries():
         try:
             durations[Path(entry["file"]).name] = float(entry["duration_seconds"])
         except (KeyError, TypeError, ValueError):
@@ -67,8 +70,56 @@ def manifest_durations():
     return durations
 
 
+def manifest_kinds(entries=None):
+    kinds = {}
+    for entry in entries if entries is not None else manifest_entries():
+        try:
+            kinds[Path(entry["file"]).name] = str(entry["kind"])
+        except (KeyError, TypeError, ValueError):
+            continue
+    return kinds
+
+
+def kind_allowed(kind):
+    if ALERT_KIND in {"", "any", "*"}:
+        return True
+    return kind == ALERT_KIND
+
+
+def apply_manifest_filters(files):
+    entries = manifest_entries()
+    if not entries:
+        return files
+
+    durations = manifest_durations(entries)
+    kinds = manifest_kinds(entries)
+    filtered = []
+    for path in files:
+        name = Path(path).name
+        if not kind_allowed(kinds.get(name, "")):
+            continue
+        if MIN_ALERT_DURATION_SECONDS > 0:
+            duration = durations.get(name, MIN_ALERT_DURATION_SECONDS)
+            if duration < MIN_ALERT_DURATION_SECONDS:
+                continue
+        filtered.append(path)
+    return filtered
+
+
 def list_alert_files():
     files = list_all_alert_files()
+    filtered = apply_manifest_filters(files)
+    if filtered:
+        return filtered
+
+    if ALERT_KIND not in {"", "any", "*"}:
+        fallback = [
+            path for path in files
+            if Path(path).stem.startswith(ALERT_KIND)
+        ]
+        if fallback:
+            return fallback
+
     if MIN_ALERT_DURATION_SECONDS <= 0:
         return files
 
@@ -80,6 +131,31 @@ def list_alert_files():
         path for path in files
         if durations.get(Path(path).name, MIN_ALERT_DURATION_SECONDS) >= MIN_ALERT_DURATION_SECONDS
     ]
+
+
+def alert_file_counts():
+    files = list_all_alert_files()
+    entries = manifest_entries()
+    if not entries:
+        return {"available": len(files), "selected": len(list_alert_files())}
+
+    durations = manifest_durations(entries)
+    kinds = manifest_kinds(entries)
+    counts = {}
+    for path in files:
+        name = Path(path).name
+        kind = kinds.get(name, "unknown")
+        counts[kind] = counts.get(kind, 0) + 1
+
+    return {
+        "available": len(files),
+        "selected": len(list_alert_files()),
+        "by_kind": counts,
+        "duration_filtered": sum(
+            1 for path in files
+            if durations.get(Path(path).name, MIN_ALERT_DURATION_SECONDS) < MIN_ALERT_DURATION_SECONDS
+        ),
+    }
 
 
 def choose_alert_file():
@@ -145,12 +221,14 @@ def bird():
 
 @app.get("/health")
 def health():
-    all_files = list_all_alert_files()
     files = list_alert_files()
+    counts = alert_file_counts()
     return {
         "ok": True,
         "sounds": len(files),
-        "available_sounds": len(all_files),
+        "available_sounds": counts["available"],
+        "sound_counts": counts,
+        "alert_kind": ALERT_KIND,
         "min_duration_s": MIN_ALERT_DURATION_SECONDS,
         "alert_dir": ALERT_DIR,
     }

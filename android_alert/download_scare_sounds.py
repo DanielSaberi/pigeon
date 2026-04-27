@@ -9,6 +9,7 @@ volumedetect filter.
 from __future__ import annotations
 
 import json
+import random
 import re
 import shutil
 import subprocess
@@ -28,6 +29,20 @@ TARGET_PEAK_DB = "-1.0"
 MAX_DURATION_SECONDS = "7"
 MIN_PEAK_DB = -2.0
 MIN_MEAN_DB = -26.0
+SEQUENCE_DURATION_SECONDS = "20"
+SEQUENCE_COUNT = 12
+SEQUENCE_RANDOM_SEED = 20260427
+WHITELIST = {
+    "bison",
+    "canada_geese",
+    "car_alarm",
+    "common_raven",
+    "coyotes",
+    "musket_fire",
+    "siren",
+    "sandhill_crane",
+    "stellers_jay",
+}
 
 
 @dataclass(frozen=True)
@@ -99,7 +114,117 @@ SOUNDS = [
         "https://www.nps.gov/subjects/sound/sounds-siren.htm",
         "startle noise",
     ),
+    SoundSpec(
+        "chainsaw",
+        "Chain Saw",
+        "https://www.nps.gov/subjects/sound/sounds-chainsaw.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "helicopter",
+        "Helicopter",
+        "https://www.nps.gov/subjects/sound/sounds-helicopter.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "jet",
+        "Jet",
+        "https://www.nps.gov/subjects/sound/sounds-jet.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "motorcycle",
+        "Motorcycle",
+        "https://www.nps.gov/subjects/sound/sounds-motorcycle.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "propeller",
+        "Propeller",
+        "https://www.nps.gov/subjects/sound/sounds-propeller.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "snowmobile",
+        "Snowmobile",
+        "https://www.nps.gov/subjects/sound/sounds-snowmobile.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "cannon_fire",
+        "Cannon Fire",
+        "https://www.nps.gov/subjects/sound/sounds-cannon.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "musket_fire",
+        "Musket Fire",
+        "https://www.nps.gov/subjects/sound/sounds-musket.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "bear_cubs",
+        "Bear with Cubs",
+        "https://www.nps.gov/subjects/sound/sounds-bearcubs.htm",
+        "predator/startle",
+    ),
+    SoundSpec(
+        "bison",
+        "Bison",
+        "https://www.nps.gov/subjects/sound/sounds-bison.htm",
+        "predator/startle",
+    ),
+    SoundSpec(
+        "elk",
+        "Elk",
+        "https://www.nps.gov/subjects/sound/sounds-elk.htm",
+        "predator/startle",
+    ),
+    SoundSpec(
+        "alligator",
+        "Alligator",
+        "https://www.nps.gov/subjects/sound/sounds-alligator.htm",
+        "predator/startle",
+    ),
+    SoundSpec(
+        "thunder",
+        "Thunder",
+        "https://www.nps.gov/subjects/sound/sounds-thunder.htm",
+        "startle noise",
+    ),
+    SoundSpec(
+        "canada_geese",
+        "Canada Geese",
+        "https://www.nps.gov/subjects/sound/sounds-canada-geese.htm",
+        "bird alarm/startle",
+    ),
+    SoundSpec(
+        "killdeer",
+        "Killdeer",
+        "https://www.nps.gov/subjects/sound/sounds-killdeer.htm",
+        "bird alarm/startle",
+    ),
+    SoundSpec(
+        "western_gull",
+        "Western Gull",
+        "https://www.nps.gov/subjects/sound/sounds-western-gull.htm",
+        "bird alarm/startle",
+    ),
+    SoundSpec(
+        "stellers_jay",
+        "Stellar's Jay",
+        "https://www.nps.gov/subjects/sound/sounds-stellers-jay.htm",
+        "bird alarm/startle",
+    ),
+    SoundSpec(
+        "sandhill_crane",
+        "Sandhill Crane",
+        "https://www.nps.gov/subjects/sound/sounds-sandhill-crane.htm",
+        "bird alarm/startle",
+    ),
 ]
+
+WHITELISTED_SOUNDS = [spec for spec in SOUNDS if spec.slug in WHITELIST]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -172,6 +297,63 @@ def normalize(source_path: Path, output_path: Path) -> None:
     )
 
 
+def build_sequence(inputs: list[Path], output_path: Path, rng: random.Random) -> list[str]:
+    """Build a normalized concatenation/repetition sequence."""
+    if not inputs:
+        raise ValueError("at least one input is required")
+
+    chosen = []
+    total_duration = 0.0
+    while total_duration < float(SEQUENCE_DURATION_SECONDS) + 4:
+        path = rng.choice(inputs)
+        chosen.append(path)
+        total_duration += measure(path)["duration_seconds"]
+
+    concat_file = output_path.with_suffix(".concat.txt")
+    concat_file.write_text(
+        "".join(f"file '{path.resolve()}'\n" for path in chosen),
+        encoding="utf-8",
+    )
+    try:
+        filter_graph = (
+            f"atrim=0:{SEQUENCE_DURATION_SECONDS},"
+            "afade=t=in:st=0:d=0.02,"
+            f"loudnorm=I={TARGET_LUFS}:TP={TARGET_PEAK_DB}:LRA=7,"
+            "volume=2dB,"
+            "alimiter=limit=0.89:level=false,"
+            "afade=t=out:st=19.8:d=0.2"
+        )
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-af",
+                filter_graph,
+                "-ac",
+                "1",
+                "-ar",
+                "44100",
+                "-b:a",
+                "192k",
+                str(output_path),
+            ],
+            check=True,
+        )
+    finally:
+        concat_file.unlink(missing_ok=True)
+
+    return [path.stem for path in chosen]
+
+
 def measure(path: Path) -> dict[str, float]:
     completed = subprocess.run(
         [
@@ -225,22 +407,33 @@ def main() -> int:
     SOURCE_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    manifest = []
-    failures = []
+    for old_file in OUTPUT_DIR.glob("*.mp3"):
+        old_file.unlink()
 
-    for spec in SOUNDS:
+    clip_manifest = []
+    failures = []
+    normalized_clips = []
+
+    missing = WHITELIST - {spec.slug for spec in WHITELISTED_SOUNDS}
+    if missing:
+        print(f"Whitelist contains unknown sound slugs: {sorted(missing)}", file=sys.stderr)
+        return 1
+
+    for spec in WHITELISTED_SOUNDS:
         print(f"Processing {spec.slug}...", flush=True)
         source_path, audio_url = download(spec)
-        output_path = OUTPUT_DIR / f"{spec.slug}.mp3"
+        output_path = OUTPUT_DIR / f"clip_{spec.slug}.mp3"
         normalize(source_path, output_path)
         levels = measure(output_path)
+        normalized_clips.append(output_path)
 
         if levels["peak_db"] < MIN_PEAK_DB or levels["mean_db"] < MIN_MEAN_DB:
             failures.append((spec.slug, levels))
 
-        manifest.append(
+        clip_manifest.append(
             {
                 "file": str(output_path.relative_to(ROOT)),
+                "kind": "source_clip",
                 "title": spec.title,
                 "category": spec.category,
                 "source_page": spec.page_url,
@@ -250,6 +443,29 @@ def main() -> int:
             }
         )
 
+    rng = random.Random(SEQUENCE_RANDOM_SEED)
+    sequence_manifest = []
+    for index in range(1, SEQUENCE_COUNT + 1):
+        output_path = OUTPUT_DIR / f"alert_sequence_{index:02d}.mp3"
+        source_sequence = build_sequence(normalized_clips, output_path, rng)
+        levels = measure(output_path)
+
+        if levels["peak_db"] < MIN_PEAK_DB or levels["mean_db"] < MIN_MEAN_DB:
+            failures.append((output_path.stem, levels))
+
+        sequence_manifest.append(
+            {
+                "file": str(output_path.relative_to(ROOT)),
+                "kind": "alert_sequence",
+                "title": f"Alert Sequence {index:02d}",
+                "category": "random curated deterrent sequence",
+                "source_clips": source_sequence,
+                "license": "Public domain; National Park Service Sound Gallery",
+                **levels,
+            }
+        )
+
+    manifest = sequence_manifest + clip_manifest
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print()

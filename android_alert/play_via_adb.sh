@@ -15,7 +15,7 @@ if [ -z "$SERIAL" ]; then
 fi
 
 if [ $# -lt 2 ]; then
-  SELECTED_FILE="$(adb -s "$SERIAL" shell "ls -1 '$ALERT_DIR'/*.mp3 2>/dev/null" | tr -d '\r' | awk 'BEGIN {srand()} {files[++n]=$0} END {if (n) print files[int(rand()*n)+1]}')"
+  SELECTED_FILE="$(adb -s "$SERIAL" shell "ls -1 '$ALERT_DIR'/alert_sequence_*.mp3 2>/dev/null || ls -1 '$ALERT_DIR'/*.mp3 2>/dev/null" | tr -d '\r' | awk 'BEGIN {srand()} {files[++n]=$0} END {if (n) print files[int(rand()*n)+1]}')"
   if [ -n "$SELECTED_FILE" ]; then
     ALERT_FILE="$SELECTED_FILE"
   fi

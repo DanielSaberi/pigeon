@@ -32,15 +32,17 @@ Android phone that can run Termux, VLC, and stay on Wi-Fi.
 
 ## Generate Or Refresh Sounds
 
-The committed `sounds/` folder already contains normalized public-domain clips.
+The committed `sounds/` folder already contains normalized public-domain alert
+sequences.
 To regenerate them:
 
 ```sh
 ./android_alert/download_scare_sounds.py
 ```
 
-The script downloads National Park Service Sound Gallery clips, trims them to
-short alerts, normalizes them with `ffmpeg`, and verifies levels with
+The script downloads the curated National Park Service Sound Gallery whitelist,
+normalizes the source clips with `ffmpeg`, creates 20-second random
+concatenation/repetition alert sequences, and verifies levels with
 `volumedetect`. Metadata and level checks are written to
 `android_alert/sounds/manifest.json`.
 
@@ -125,7 +127,7 @@ curl -fsS http://PHONE_IP:8765/health
 Expected response after the random sound set is active:
 
 ```json
-{"ok":true,"sounds":8,"available_sounds":10,"min_duration_s":5.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
+{"ok":true,"sounds":12,"available_sounds":21,"alert_kind":"alert_sequence","min_duration_s":5.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
 ```
 
 Trigger one alert:
@@ -140,7 +142,7 @@ If you did not set `BIRD_ALERT_TOKEN`, omit the header.
 The response includes the selected sound file:
 
 ```json
-{"ok":true,"alert":{"file":"common_raven.mp3","path":"/sdcard/Download/pigeon-setup/sounds/common_raven.mp3","timestamp":1777280000.0}}
+{"ok":true,"alert":{"file":"alert_sequence_03.mp3","path":"/sdcard/Download/pigeon-setup/sounds/alert_sequence_03.mp3","timestamp":1777280000.0}}
 ```
 
 Check the last selected file:
@@ -232,11 +234,13 @@ export BIRD_ALERT_DIR=/sdcard/Download/pigeon-setup/sounds
 export BIRD_ALERT_FILE=/sdcard/Download/pigeon-setup/alert.mp3
 export BIRD_ALERT_COOLDOWN=2
 export BIRD_ALERT_MIN_DURATION=5.0
+export BIRD_ALERT_KIND=alert_sequence
 ```
 
 The receiver avoids repeating the exact same file twice in a row when multiple
 sounds are available. If `sounds/manifest.json` is present, the default setup
-skips clips shorter than 5 seconds.
+plays only `kind=alert_sequence` entries and skips clips shorter than 5 seconds.
+Use `BIRD_ALERT_KIND=any` to include every manifest entry.
 
 ## Troubleshooting
 

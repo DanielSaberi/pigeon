@@ -1,50 +1,205 @@
 [
   {
-    "file": "sounds/raven_peregrine.mp3",
-    "title": "Raven and Peregrine Falcon",
-    "category": "predator/bird alarm",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-peregrine-raven_bryce.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-PeregrineandRaven.mp3",
+    "file": "sounds/alert_sequence_01.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 01",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_common_raven",
+      "clip_musket_fire",
+      "clip_coyotes",
+      "clip_canada_geese",
+      "clip_common_raven"
+    ],
     "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -12.2,
+    "mean_db": -9.8,
+    "peak_db": -1.0,
+    "duration_seconds": 19.905
+  },
+  {
+    "file": "sounds/alert_sequence_02.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 02",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_canada_geese",
+      "clip_car_alarm",
+      "clip_siren",
+      "clip_coyotes"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -10.4,
     "peak_db": -1.2,
-    "duration_seconds": 7.027
+    "duration_seconds": 19.931
   },
   {
-    "file": "sounds/bald_eagle.mp3",
-    "title": "Bald Eagle",
-    "category": "predator call",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-bald-eagle.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BaldEagleYELL.mp3",
+    "file": "sounds/alert_sequence_03.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 03",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_canada_geese",
+      "clip_stellers_jay",
+      "clip_coyotes",
+      "clip_bison",
+      "clip_canada_geese",
+      "clip_coyotes"
+    ],
     "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -13.5,
+    "mean_db": -12.9,
+    "peak_db": -1.2,
+    "duration_seconds": 19.879
+  },
+  {
+    "file": "sounds/alert_sequence_04.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 04",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_car_alarm",
+      "clip_sandhill_crane",
+      "clip_siren",
+      "clip_canada_geese",
+      "clip_stellers_jay"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -10.3,
+    "peak_db": -1.2,
+    "duration_seconds": 19.931
+  },
+  {
+    "file": "sounds/alert_sequence_05.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 05",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_car_alarm",
+      "clip_common_raven",
+      "clip_siren",
+      "clip_bison"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -8.3,
     "peak_db": -1.3,
-    "duration_seconds": 2.456
+    "duration_seconds": 19.905
   },
   {
-    "file": "sounds/osprey.mp3",
-    "title": "Osprey",
-    "category": "predator call",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-osprey.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-OspreyGRTE.mp3",
+    "file": "sounds/alert_sequence_06.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 06",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_siren",
+      "clip_stellers_jay",
+      "clip_siren",
+      "clip_sandhill_crane"
+    ],
     "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -6.8,
-    "peak_db": -0.8,
-    "duration_seconds": 3.474
+    "mean_db": -11.7,
+    "peak_db": -1.2,
+    "duration_seconds": 19.931
   },
   {
-    "file": "sounds/spotted_owl.mp3",
-    "title": "Spotted Owl",
-    "category": "predator call",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-spotted-owl.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-SpottedOwlYOSE.mp3",
+    "file": "sounds/alert_sequence_07.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 07",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_siren",
+      "clip_sandhill_crane",
+      "clip_musket_fire",
+      "clip_car_alarm"
+    ],
     "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -14.6,
-    "peak_db": -1.3,
-    "duration_seconds": 5.146
+    "mean_db": -11.9,
+    "peak_db": -1.1,
+    "duration_seconds": 19.905
   },
   {
-    "file": "sounds/common_raven.mp3",
+    "file": "sounds/alert_sequence_08.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 08",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_coyotes",
+      "clip_common_raven",
+      "clip_bison",
+      "clip_musket_fire"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -9.8,
+    "peak_db": -1.2,
+    "duration_seconds": 19.905
+  },
+  {
+    "file": "sounds/alert_sequence_09.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 09",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_car_alarm",
+      "clip_siren",
+      "clip_bison",
+      "clip_coyotes"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -10.7,
+    "peak_db": -1.2,
+    "duration_seconds": 19.958
+  },
+  {
+    "file": "sounds/alert_sequence_10.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 10",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_canada_geese",
+      "clip_sandhill_crane",
+      "clip_car_alarm",
+      "clip_bison",
+      "clip_car_alarm"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -10.6,
+    "peak_db": -1.2,
+    "duration_seconds": 19.905
+  },
+  {
+    "file": "sounds/alert_sequence_11.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 11",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_coyotes",
+      "clip_bison",
+      "clip_coyotes",
+      "clip_bison"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -12.4,
+    "peak_db": -1.2,
+    "duration_seconds": 19.958
+  },
+  {
+    "file": "sounds/alert_sequence_12.mp3",
+    "kind": "alert_sequence",
+    "title": "Alert Sequence 12",
+    "category": "random curated deterrent sequence",
+    "source_clips": [
+      "clip_canada_geese",
+      "clip_car_alarm",
+      "clip_common_raven",
+      "clip_common_raven",
+      "clip_siren"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -7.8,
+    "peak_db": -1.2,
+    "duration_seconds": 19.905
+  },
+  {
+    "file": "sounds/clip_common_raven.mp3",
+    "kind": "source_clip",
     "title": "Common Raven",
     "category": "alarm/harassment call",
     "source_page": "https://www.nps.gov/subjects/sound/sounds-common-raven.htm",
@@ -55,7 +210,8 @@
     "duration_seconds": 5.669
   },
   {
-    "file": "sounds/coyotes.mp3",
+    "file": "sounds/clip_coyotes.mp3",
+    "kind": "source_clip",
     "title": "Coyotes",
     "category": "predator/startle",
     "source_page": "https://www.nps.gov/subjects/sound/sounds-coyotes.htm",
@@ -66,29 +222,8 @@
     "duration_seconds": 7.027
   },
   {
-    "file": "sounds/coyote_chase.mp3",
-    "title": "Coyote Chase",
-    "category": "predator/startle",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-coyote-chase.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CoyotesChaseGRSA.mp3",
-    "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -11.7,
-    "peak_db": -1.2,
-    "duration_seconds": 7.027
-  },
-  {
-    "file": "sounds/wolf.mp3",
-    "title": "Wolf",
-    "category": "predator/startle",
-    "source_page": "https://www.nps.gov/subjects/sound/sounds-wolf.htm",
-    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-WolfDENA.mp3",
-    "license": "Public domain; National Park Service Sound Gallery",
-    "mean_db": -12.8,
-    "peak_db": -1.8,
-    "duration_seconds": 7.027
-  },
-  {
-    "file": "sounds/car_alarm.mp3",
+    "file": "sounds/clip_car_alarm.mp3",
+    "kind": "source_clip",
     "title": "Car Alarm",
     "category": "startle noise",
     "source_page": "https://www.nps.gov/subjects/sound/sounds-car-alarm.htm",
@@ -99,7 +234,8 @@
     "duration_seconds": 7.027
   },
   {
-    "file": "sounds/siren.mp3",
+    "file": "sounds/clip_siren.mp3",
+    "kind": "source_clip",
     "title": "Siren",
     "category": "startle noise",
     "source_page": "https://www.nps.gov/subjects/sound/sounds-siren.htm",
@@ -108,5 +244,65 @@
     "mean_db": -13.8,
     "peak_db": -1.3,
     "duration_seconds": 7.027
+  },
+  {
+    "file": "sounds/clip_musket_fire.mp3",
+    "kind": "source_clip",
+    "title": "Musket Fire",
+    "category": "startle noise",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-musket.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -16.4,
+    "peak_db": -1.1,
+    "duration_seconds": 5.695
+  },
+  {
+    "file": "sounds/clip_bison.mp3",
+    "kind": "source_clip",
+    "title": "Bison",
+    "category": "predator/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-bison.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BisonYELL.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -14.5,
+    "peak_db": -1.3,
+    "duration_seconds": 5.956
+  },
+  {
+    "file": "sounds/clip_canada_geese.mp3",
+    "kind": "source_clip",
+    "title": "Canada Geese",
+    "category": "bird alarm/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-canada-geese.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-CanadaGoose.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -16.3,
+    "peak_db": -1.3,
+    "duration_seconds": 3.109
+  },
+  {
+    "file": "sounds/clip_stellers_jay.mp3",
+    "kind": "source_clip",
+    "title": "Stellar's Jay",
+    "category": "bird alarm/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-stellers-jay.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-StellerJay2.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -13.5,
+    "peak_db": -1.3,
+    "duration_seconds": 3.866
+  },
+  {
+    "file": "sounds/clip_sandhill_crane.mp3",
+    "kind": "source_clip",
+    "title": "Sandhill Crane",
+    "category": "bird alarm/startle",
+    "source_page": "https://www.nps.gov/subjects/sound/sounds-sandhill-crane.htm",
+    "source_audio": "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-SandhillCranesDENA.mp3",
+    "license": "Public domain; National Park Service Sound Gallery",
+    "mean_db": -12.6,
+    "peak_db": -1.3,
+    "duration_seconds": 6.165
   }
 ]
