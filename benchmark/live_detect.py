@@ -378,6 +378,64 @@ def write_video_frame(writer, frame, size):
     writer.write(frame)
 
 
+def record_av_clip(rtsp_url, save_dir, prefix, preset_id, duration_seconds):
+    """Record a continuous RTSP audio/video clip with ffmpeg."""
+    suffix = preset_suffix(preset_id)
+    fname = f"{prefix}{suffix}_{frame_timestamp()}.mp4"
+    save_path = os.path.join(save_dir, fname)
+    duration = max(0.001, float(duration_seconds))
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-i",
+        rtsp_url,
+        "-t",
+        f"{duration:.3f}",
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a?",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "64k",
+        "-movflags",
+        "+faststart",
+        save_path,
+    ]
+
+    started = time.time()
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except OSError as e:
+        return {
+            "ok": False,
+            "file": fname,
+            "duration_requested_s": round(duration, 3),
+            "elapsed_s": round(time.time() - started, 2),
+            "returncode": None,
+            "error": str(e)[:500],
+        }
+
+    elapsed = time.time() - started
+    file_size = os.path.getsize(save_path) if os.path.exists(save_path) else 0
+    ok = result.returncode == 0 and file_size > 0
+    return {
+        "ok": ok,
+        "file": fname,
+        "duration_requested_s": round(duration, 3),
+        "elapsed_s": round(elapsed, 2),
+        "returncode": result.returncode,
+        "file_size_bytes": file_size,
+        "stderr": result.stderr[-1000:].strip(),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Live bird detection from RTSP camera",
@@ -423,15 +481,19 @@ def main():
                         help="Timeout in seconds for alert triggers")
     parser.add_argument("--post-detect-save-seconds", type=float, default=300.0,
                         help="Seconds after a bird detection to save follow-up media; 0 disables")
-    parser.add_argument("--post-detect-mode", choices=["video", "frames", "both", "off"], default="video",
+    parser.add_argument("--post-detect-mode", choices=["av", "video", "frames", "both", "off"], default="av",
                         help="Follow-up media saved after bird detections")
     parser.add_argument("--post-detect-video-fps", type=float, default=1.0,
-                        help="FPS for post-detection sampled-frame MP4 clips")
+                        help="FPS for post-detection sampled-frame MP4 clips; ignored by --post-detect-mode av")
     args = parser.parse_args()
     post_detect_enabled = args.post_detect_save_seconds > 0 and args.post_detect_mode != "off"
+    save_post_detect_av = args.post_detect_mode == "av"
     save_post_detect_frames = args.post_detect_mode in {"frames", "both"}
     save_post_detect_video = args.post_detect_mode in {"video", "both"}
-    if args.post_detect_video_fps <= 0:
+    sampled_post_detect_enabled = (
+        post_detect_enabled and (save_post_detect_frames or save_post_detect_video)
+    )
+    if save_post_detect_video and args.post_detect_video_fps <= 0:
         parser.error("--post-detect-video-fps must be positive")
 
     # Apply backend preset
@@ -473,6 +535,8 @@ def main():
         print(f"  Alert cmd: {args.alert_command} ({args.alert_cooldown}s cooldown)")
     if post_detect_enabled:
         detail = []
+        if save_post_detect_av:
+            detail.append("continuous AV MP4 with audio")
         if save_post_detect_video:
             detail.append(f"MP4 at {args.post_detect_video_fps:g} fps")
         if save_post_detect_frames:
@@ -652,6 +716,8 @@ def main():
             status = "BIRD DETECTED" if bird else "no bird"
             preset_note = f" [preset {current_preset}]" if current_preset is not None else ""
             alert_result = None
+            post_detect_av_result = None
+            stop_after_log = False
 
             print(f"  [{timestamp}] Inference #{inference_count}{preset_note}: {status} "
                   f"(conf={conf:.2f}, {inference_time:.1f}s)")
@@ -660,7 +726,7 @@ def main():
             if bird:
                 detection_count += 1
                 fname, save_path = save_frame(args.save_detections, "bird", current_preset, frame)
-                if post_detect_enabled:
+                if sampled_post_detect_enabled:
                     if save_post_detect_video and post_detect_video_writer is None:
                         (
                             post_detect_video_writer,
@@ -716,6 +782,36 @@ def main():
                     }
                     print(f"    Alert skipped: cooldown ({alert_result['remaining_s']}s remaining)")
 
+            if bird and post_detect_enabled and save_post_detect_av:
+                print(f"    Recording AV follow-up for {args.post_detect_save_seconds:g}s...")
+                if post_detect_video_writer is not None:
+                    post_detect_video_writer.release()
+                    post_detect_video_writer = None
+                cap.release()
+                post_detect_av_result = record_av_clip(
+                    rtsp_url,
+                    args.save_detections,
+                    "postbird_av",
+                    current_preset,
+                    args.post_detect_save_seconds,
+                )
+                if post_detect_av_result.get("ok"):
+                    print(f"    AV follow-up saved: "
+                          f"{os.path.join(args.save_detections, post_detect_av_result['file'])}")
+                else:
+                    print(f"    AV follow-up failed: {post_detect_av_result}")
+
+                print("    Reconnecting detection stream...")
+                cap = open_stream(rtsp_url)
+                if cap is None:
+                    print("ERROR: Could not reopen RTSP stream after AV follow-up", file=sys.stderr)
+                    stop_after_log = True
+                else:
+                    motion_references.pop(motion_key, None)
+                    last_capture_time = 0
+                    if preset_cycle:
+                        next_preset_switch = time.time() + args.preset_dwell
+
             print(f"    Saved: {save_path}")
 
             # Log to JSONL
@@ -734,15 +830,22 @@ def main():
                 log_entry["preset_id"] = current_preset
             if bird:
                 log_entry["saved_frame"] = fname
-                if post_detect_enabled:
+                if sampled_post_detect_enabled:
                     log_entry["post_detect_save_until"] = round(post_detect_save_until, 3)
                     log_entry["post_detect_mode"] = args.post_detect_mode
                     if post_detect_video_fname:
                         log_entry["post_detect_video"] = post_detect_video_fname
+                if post_detect_av_result is not None:
+                    log_entry["post_detect_mode"] = args.post_detect_mode
+                    log_entry["post_detect_video"] = post_detect_av_result.get("file")
+                    log_entry["post_detect_av"] = post_detect_av_result
             if alert_result is not None:
                 log_entry["alert"] = alert_result
             with open(args.log_file, "a") as f:
                 f.write(json.dumps(log_entry) + "\n")
+
+            if stop_after_log:
+                break
 
     except KeyboardInterrupt:
         print(f"\n\nStopped.")
@@ -754,7 +857,8 @@ def main():
     finally:
         if post_detect_video_writer is not None:
             post_detect_video_writer.release()
-        cap.release()
+        if cap is not None:
+            cap.release()
 
 
 if __name__ == "__main__":

@@ -19,10 +19,14 @@ python benchmark/live_detect.py \
   --alert-cooldown 60
 ```
 
-After a bird detection, the detector saves a sampled-frame MP4 clip for 5
-minutes by default as `postbird_*.mp4`. Configure the duration with
+After a bird detection, the detector saves a continuous RTSP audio/video clip
+for 5 minutes by default as `postbird_av_*.mp4`. Configure the duration with
 `--post-detect-save-seconds`; use `0` or `--post-detect-mode off` to disable it.
-Use `--post-detect-mode frames` or `both` if JPEG follow-up frames are needed.
+The AV mode temporarily stops frame-based detection, records one ffmpeg clip
+from the current preset, then reconnects detection. Use the older sampled-frame
+modes with `--post-detect-mode video`, `frames`, or `both`.
+`--post-detect-video-fps` only affects sampled-frame MP4s; AV clips keep the
+camera stream's native FPS.
 
 Offline benchmark:
 
@@ -46,12 +50,11 @@ TODO.md                         follow-up implementation notes
 The Tapo camera supports only one RTSP session. Close the Tapo app before
 starting live detection.
 
-The RTSP stream exposes audio, but the live detector currently uses OpenCV,
-which captures video frames only. The `postbird_*.mp4` files are sampled-frame
-video clips without audio, not continuous camera recordings. Recording audio
-would require moving capture to a single ffmpeg-based pipeline; starting a
-second ffmpeg RTSP recorder while live detection is running is likely to fail
-because of the one-session camera limit.
+The RTSP stream exposes audio. The default AV follow-up mode releases the
+OpenCV detector stream before starting ffmpeg, because the Tapo camera appears
+to support only one RTSP client at a time. This avoids concurrent RTSP sessions
+but means detection and preset cycling are paused while the follow-up clip is
+being recorded.
 
 Detection output is intentionally ignored by git:
 
