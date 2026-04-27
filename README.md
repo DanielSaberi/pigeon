@@ -20,7 +20,7 @@ python benchmark/live_detect.py \
 ```
 
 After a bird detection, the detector saves a continuous RTSP audio/video clip
-for 5 minutes by default as `postbird_av_*.mp4`. Configure the duration with
+for 1.5 minutes by default as `postbird_av_*.mp4`. Configure the duration with
 `--post-detect-save-seconds`; use `0` or `--post-detect-mode off` to disable it.
 The AV mode temporarily stops frame-based detection, records one ffmpeg clip
 from the current preset, then reconnects detection. Use the older sampled-frame

@@ -479,7 +479,7 @@ def main():
                         help="Minimum seconds between alert triggers")
     parser.add_argument("--alert-timeout", type=float, default=1.0,
                         help="Timeout in seconds for alert triggers")
-    parser.add_argument("--post-detect-save-seconds", type=float, default=300.0,
+    parser.add_argument("--post-detect-save-seconds", type=float, default=90.0,
                         help="Seconds after a bird detection to save follow-up media; 0 disables")
     parser.add_argument("--post-detect-mode", choices=["av", "video", "frames", "both", "off"], default="av",
                         help="Follow-up media saved after bird detections")
