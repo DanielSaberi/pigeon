@@ -32,6 +32,11 @@ MIN_MEAN_DB = -26.0
 SEQUENCE_DURATION_SECONDS = "20"
 SEQUENCE_COUNT = 12
 SEQUENCE_RANDOM_SEED = 20260427
+STARTLE_LEAD_IN_SECONDS = 2.0
+STARTLE_SEGMENT_SECONDS = 1.4
+STARTLE_GAP_SECONDS = 0.28
+STARTLE_MIN_BURST_PEAK_DB = -2.0
+STARTLE_MAX_LEAD_PEAK_DB = -35.0
 WHITELIST = {
     "bison",
     "canada_geese",
@@ -43,6 +48,25 @@ WHITELIST = {
     "sandhill_crane",
     "stellers_jay",
 }
+STARTLE_SOURCE_SLUGS = {
+    "avalanche",
+    "bighorn_ram",
+    "cannon_fire",
+    "musket_fire",
+    "thunder",
+}
+STARTLE_PATTERNS = [
+    ("startle_burst_01", "Cannon Fire Single", ["cannon_fire"]),
+    ("startle_burst_02", "Musket Fire Single", ["musket_fire"]),
+    ("startle_burst_03", "Bighorn Ram Single", ["bighorn_ram"]),
+    ("startle_burst_04", "Thunder Crack", ["thunder"]),
+    ("startle_burst_05", "Avalanche Bang", ["avalanche"]),
+    ("startle_burst_06", "Cannon Musket Double", ["cannon_fire", "musket_fire"]),
+    ("startle_burst_07", "Musket Ram Double", ["musket_fire", "bighorn_ram"]),
+    ("startle_burst_08", "Ram Cannon Double", ["bighorn_ram", "cannon_fire"]),
+    ("startle_burst_09", "Thunder Musket Double", ["thunder", "musket_fire"]),
+    ("startle_burst_10", "Avalanche Cannon Double", ["avalanche", "cannon_fire"]),
+]
 
 
 @dataclass(frozen=True)
@@ -163,10 +187,22 @@ SOUNDS = [
         "startle noise",
     ),
     SoundSpec(
+        "avalanche",
+        "Avalanche",
+        "https://www.nps.gov/subjects/sound/avalanche.htm",
+        "impact/startle noise",
+    ),
+    SoundSpec(
         "bear_cubs",
         "Bear with Cubs",
         "https://www.nps.gov/subjects/sound/sounds-bearcubs.htm",
         "predator/startle",
+    ),
+    SoundSpec(
+        "bighorn_ram",
+        "Bighorn Sheep Ramming Heads",
+        "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm",
+        "impact/startle noise",
     ),
     SoundSpec(
         "bison",
@@ -225,6 +261,7 @@ SOUNDS = [
 ]
 
 WHITELISTED_SOUNDS = [spec for spec in SOUNDS if spec.slug in WHITELIST]
+STARTLE_SOUNDS = [spec for spec in SOUNDS if spec.slug in STARTLE_SOURCE_SLUGS]
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -354,6 +391,123 @@ def build_sequence(inputs: list[Path], output_path: Path, rng: random.Random) ->
     return [path.stem for path in chosen]
 
 
+def make_silence(output_path: Path, duration_seconds: float) -> None:
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=mono",
+            "-t",
+            f"{duration_seconds:.3f}",
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            str(output_path),
+        ],
+        check=True,
+    )
+
+
+def prepare_startle_segment(source_path: Path, output_path: Path) -> None:
+    filter_graph = (
+        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
+        f"atrim=0:{STARTLE_SEGMENT_SECONDS},"
+        "asetpts=PTS-STARTPTS,"
+        "highpass=f=100,"
+        "afade=t=in:st=0:d=0.005,"
+        f"afade=t=out:st={max(0.0, STARTLE_SEGMENT_SECONDS - 0.08):.3f}:d=0.08,"
+        "loudnorm=I=-8:TP=-0.8:LRA=4,"
+        "volume=5dB,"
+        "alimiter=limit=0.91:level=false"
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(source_path),
+            "-af",
+            filter_graph,
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            str(output_path),
+        ],
+        check=True,
+    )
+
+
+def build_startle_burst(source_paths: list[Path], output_path: Path) -> list[str]:
+    """Build a short startle clip with two seconds of lead-in silence."""
+    if not source_paths:
+        raise ValueError("at least one source path is required")
+
+    temp_dir = output_path.with_suffix(".tmp")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    pieces = []
+
+    try:
+        lead_path = temp_dir / "lead.wav"
+        make_silence(lead_path, STARTLE_LEAD_IN_SECONDS)
+        pieces.append(lead_path)
+
+        for index, source_path in enumerate(source_paths):
+            segment_path = temp_dir / f"segment_{index}.wav"
+            prepare_startle_segment(source_path, segment_path)
+            pieces.append(segment_path)
+            if index < len(source_paths) - 1:
+                gap_path = temp_dir / f"gap_{index}.wav"
+                make_silence(gap_path, STARTLE_GAP_SECONDS)
+                pieces.append(gap_path)
+
+        concat_file = temp_dir / "concat.txt"
+        concat_file.write_text(
+            "".join(f"file '{path.resolve()}'\n" for path in pieces),
+            encoding="utf-8",
+        )
+        filter_graph = "alimiter=limit=0.89:level=false"
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-af",
+                filter_graph,
+                "-ac",
+                "1",
+                "-ar",
+                "44100",
+                "-b:a",
+                "192k",
+                str(output_path),
+            ],
+            check=True,
+        )
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return [path.stem for path in source_paths]
+
+
 def measure(path: Path) -> dict[str, float]:
     completed = subprocess.run(
         [
@@ -399,6 +553,76 @@ def measure(path: Path) -> dict[str, float]:
     }
 
 
+def measure_segment(path: Path, start_seconds: float, duration_seconds: float) -> dict[str, float]:
+    completed = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostats",
+            "-ss",
+            f"{start_seconds:.3f}",
+            "-t",
+            f"{duration_seconds:.3f}",
+            "-i",
+            str(path),
+            "-af",
+            "volumedetect",
+            "-f",
+            "null",
+            "-",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    output = completed.stderr
+    mean_match = re.search(r"mean_volume:\s*(-?\d+(?:\.\d+)?) dB", output)
+    max_match = re.search(r"max_volume:\s*(-?\d+(?:\.\d+)?) dB", output)
+    if not mean_match or not max_match:
+        raise RuntimeError(f"Could not parse volumedetect output for {path}")
+
+    return {
+        "mean_db": float(mean_match.group(1)),
+        "peak_db": float(max_match.group(1)),
+    }
+
+
+def first_loud_time(path: Path, threshold_db: str = "-35dB") -> float | None:
+    completed = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostats",
+            "-i",
+            str(path),
+            "-af",
+            f"silencedetect=noise={threshold_db}:d=0.02",
+            "-f",
+            "null",
+            "-",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    match = re.search(r"silence_end:\s*(\d+(?:\.\d+)?)", completed.stderr)
+    if not match:
+        return None
+    return round(float(match.group(1)), 3)
+
+
+def inspect_startle(path: Path) -> dict[str, float | None]:
+    levels = measure(path)
+    lead = measure_segment(path, 0, max(0.1, STARTLE_LEAD_IN_SECONDS - 0.1))
+    burst = measure_segment(path, STARTLE_LEAD_IN_SECONDS, max(0.1, levels["duration_seconds"] - STARTLE_LEAD_IN_SECONDS))
+    return {
+        **levels,
+        "lead_peak_db": lead["peak_db"],
+        "burst_peak_db": burst["peak_db"],
+        "first_loud_time_s": first_loud_time(path),
+    }
+
+
 def main() -> int:
     if not shutil_which("ffmpeg") or not shutil_which("ffprobe"):
         print("ffmpeg and ffprobe are required", file=sys.stderr)
@@ -417,6 +641,10 @@ def main() -> int:
     missing = WHITELIST - {spec.slug for spec in WHITELISTED_SOUNDS}
     if missing:
         print(f"Whitelist contains unknown sound slugs: {sorted(missing)}", file=sys.stderr)
+        return 1
+    missing_startle = STARTLE_SOURCE_SLUGS - {spec.slug for spec in STARTLE_SOUNDS}
+    if missing_startle:
+        print(f"Startle source list contains unknown sound slugs: {sorted(missing_startle)}", file=sys.stderr)
         return 1
 
     for spec in WHITELISTED_SOUNDS:
@@ -443,6 +671,14 @@ def main() -> int:
             }
         )
 
+    startle_source_paths = {}
+    startle_source_urls = {}
+    for spec in STARTLE_SOUNDS:
+        print(f"Processing startle source {spec.slug}...", flush=True)
+        source_path, audio_url = download(spec)
+        startle_source_paths[spec.slug] = source_path
+        startle_source_urls[spec.slug] = audio_url
+
     rng = random.Random(SEQUENCE_RANDOM_SEED)
     sequence_manifest = []
     for index in range(1, SEQUENCE_COUNT + 1):
@@ -465,7 +701,44 @@ def main() -> int:
             }
         )
 
-    manifest = sequence_manifest + clip_manifest
+    startle_manifest = []
+    for slug, title, source_slugs in STARTLE_PATTERNS:
+        print(f"Building {slug}...", flush=True)
+        output_path = OUTPUT_DIR / f"{slug}.mp3"
+        source_paths = [startle_source_paths[source_slug] for source_slug in source_slugs]
+        source_sequence = build_startle_burst(source_paths, output_path)
+        levels = inspect_startle(output_path)
+
+        first_loud = levels["first_loud_time_s"]
+        if levels["lead_peak_db"] > STARTLE_MAX_LEAD_PEAK_DB:
+            failures.append((slug, {"lead_peak_db": levels["lead_peak_db"]}))
+        if levels["burst_peak_db"] < STARTLE_MIN_BURST_PEAK_DB:
+            failures.append((slug, {"burst_peak_db": levels["burst_peak_db"]}))
+        if first_loud is None or first_loud < STARTLE_LEAD_IN_SECONDS - 0.15:
+            failures.append((slug, {"first_loud_time_s": first_loud}))
+
+        startle_manifest.append(
+            {
+                "file": str(output_path.relative_to(ROOT)),
+                "kind": "startle_burst",
+                "title": title,
+                "category": "short impulsive startle with 2s lead-in silence",
+                "source_clips": source_sequence,
+                "source_pages": [
+                    next(spec.page_url for spec in STARTLE_SOUNDS if spec.slug == source_slug)
+                    for source_slug in source_slugs
+                ],
+                "source_audio": [
+                    startle_source_urls[source_slug]
+                    for source_slug in source_slugs
+                ],
+                "license": "Public domain; National Park Service Sound Gallery",
+                "lead_in_seconds": STARTLE_LEAD_IN_SECONDS,
+                **levels,
+            }
+        )
+
+    manifest = sequence_manifest + startle_manifest + clip_manifest
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print()

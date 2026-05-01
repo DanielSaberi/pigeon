@@ -32,8 +32,8 @@ Android phone that can run Termux, VLC, and stay on Wi-Fi.
 
 ## Generate Or Refresh Sounds
 
-The committed `sounds/` folder already contains normalized public-domain alert
-sequences.
+The committed `sounds/` folder contains normalized public-domain alert
+sequences and short startle-burst test clips.
 To regenerate them:
 
 ```sh
@@ -42,8 +42,9 @@ To regenerate them:
 
 The script downloads the curated National Park Service Sound Gallery whitelist,
 normalizes the source clips with `ffmpeg`, creates 20-second random
-concatenation/repetition alert sequences, and verifies levels with
-`volumedetect`. Metadata and level checks are written to
+concatenation/repetition alert sequences, creates short `startle_burst_*.mp3`
+files with 2 seconds of lead-in silence, and verifies levels with
+`volumedetect`/`silencedetect`. Metadata and level checks are written to
 `android_alert/sounds/manifest.json`.
 
 ## Deploy With USB ADB
@@ -124,10 +125,10 @@ Health check:
 curl -fsS http://PHONE_IP:8765/health
 ```
 
-Expected response after the random sound set is active:
+Expected response after the startle-burst sound set is active:
 
 ```json
-{"ok":true,"sounds":12,"available_sounds":21,"alert_kind":"alert_sequence","min_duration_s":5.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
+{"ok":true,"sounds":10,"available_sounds":31,"alert_kind":"startle_burst","min_duration_s":0.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
 ```
 
 Trigger one alert:
@@ -142,7 +143,7 @@ If you did not set `BIRD_ALERT_TOKEN`, omit the header.
 The response includes the selected sound file:
 
 ```json
-{"ok":true,"alert":{"file":"alert_sequence_03.mp3","path":"/sdcard/Download/pigeon-setup/sounds/alert_sequence_03.mp3","timestamp":1777280000.0}}
+{"ok":true,"alert":{"file":"startle_burst_03.mp3","path":"/sdcard/Download/pigeon-setup/sounds/startle_burst_03.mp3","timestamp":1777280000.0}}
 ```
 
 Check the last selected file:
@@ -233,14 +234,16 @@ Environment overrides in Termux:
 export BIRD_ALERT_DIR=/sdcard/Download/pigeon-setup/sounds
 export BIRD_ALERT_FILE=/sdcard/Download/pigeon-setup/alert.mp3
 export BIRD_ALERT_COOLDOWN=2
-export BIRD_ALERT_MIN_DURATION=5.0
-export BIRD_ALERT_KIND=alert_sequence
+export BIRD_ALERT_MIN_DURATION=0
+export BIRD_ALERT_KIND=startle_burst
 ```
 
 The receiver avoids repeating the exact same file twice in a row when multiple
-sounds are available. If `sounds/manifest.json` is present, the default setup
-plays only `kind=alert_sequence` entries and skips clips shorter than 5 seconds.
-Use `BIRD_ALERT_KIND=any` to include every manifest entry.
+sounds are available. If `sounds/manifest.json` is present, the current default
+setup plays only `kind=startle_burst` entries. Set
+`BIRD_ALERT_KIND=alert_sequence` and `BIRD_ALERT_MIN_DURATION=5.0` to return to
+the older 20-second sequence files. Use `BIRD_ALERT_KIND=any` to include every
+manifest entry.
 
 ## Troubleshooting
 

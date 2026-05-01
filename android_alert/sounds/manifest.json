@@ -198,6 +198,251 @@
     "duration_seconds": 19.905
   },
   {
+    "file": "sounds/startle_burst_01.mp3",
+    "kind": "startle_burst",
+    "title": "Cannon Fire Single",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "cannon_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -23.4,
+    "peak_db": -1.3,
+    "duration_seconds": 3.448,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_02.mp3",
+    "kind": "startle_burst",
+    "title": "Musket Fire Single",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "musket_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -19.5,
+    "peak_db": -1.3,
+    "duration_seconds": 3.448,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.011
+  },
+  {
+    "file": "sounds/startle_burst_03.mp3",
+    "kind": "startle_burst",
+    "title": "Bighorn Ram Single",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "bighorn_ram"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -27.8,
+    "peak_db": -1.3,
+    "duration_seconds": 3.448,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_04.mp3",
+    "kind": "startle_burst",
+    "title": "Thunder Crack",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "thunder"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-thunder.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Thunder.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -17.3,
+    "peak_db": -1.2,
+    "duration_seconds": 3.448,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_05.mp3",
+    "kind": "startle_burst",
+    "title": "Avalanche Bang",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "avalanche"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/avalanche.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-AvalancheDENA.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -21.0,
+    "peak_db": -1.3,
+    "duration_seconds": 3.448,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.026
+  },
+  {
+    "file": "sounds/startle_burst_06.mp3",
+    "kind": "startle_burst",
+    "title": "Cannon Musket Double",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "cannon_fire",
+      "musket_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-cannon.htm",
+      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3",
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -19.8,
+    "peak_db": -1.3,
+    "duration_seconds": 5.12,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_07.mp3",
+    "kind": "startle_burst",
+    "title": "Musket Ram Double",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "musket_fire",
+      "bighorn_ram"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-musket.htm",
+      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3",
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -20.6,
+    "peak_db": -1.3,
+    "duration_seconds": 5.12,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.011
+  },
+  {
+    "file": "sounds/startle_burst_08.mp3",
+    "kind": "startle_burst",
+    "title": "Ram Cannon Double",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "bighorn_ram",
+      "cannon_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm",
+      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3",
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -23.8,
+    "peak_db": -1.3,
+    "duration_seconds": 5.12,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_09.mp3",
+    "kind": "startle_burst",
+    "title": "Thunder Musket Double",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "thunder",
+      "musket_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/sounds-thunder.htm",
+      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Thunder.mp3",
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -17.0,
+    "peak_db": -1.2,
+    "duration_seconds": 5.12,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_burst_10.mp3",
+    "kind": "startle_burst",
+    "title": "Avalanche Cannon Double",
+    "category": "short impulsive startle with 2s lead-in silence",
+    "source_clips": [
+      "avalanche",
+      "cannon_fire"
+    ],
+    "source_pages": [
+      "https://www.nps.gov/subjects/sound/avalanche.htm",
+      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
+    ],
+    "source_audio": [
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-AvalancheDENA.mp3",
+      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
+    ],
+    "license": "Public domain; National Park Service Sound Gallery",
+    "lead_in_seconds": 2.0,
+    "mean_db": -20.7,
+    "peak_db": -1.3,
+    "duration_seconds": 5.12,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.026
+  },
+  {
     "file": "sounds/clip_common_raven.mp3",
     "kind": "source_clip",
     "title": "Common Raven",
