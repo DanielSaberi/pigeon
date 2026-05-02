@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Download and normalize public-domain scare-alert sounds.
+"""Download and normalize public-domain/CC0 scare-alert sounds.
 
-The selected sources are public-domain NPS Sound Gallery clips. Outputs are
-short MP3 files normalized for alert playback and verified with ffmpeg's
-volumedetect filter.
+The long alert sequences use public-domain NPS Sound Gallery clips. The short
+startle bursts use separate gunshot, explosion, and clap sources.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -33,9 +33,9 @@ SEQUENCE_DURATION_SECONDS = "20"
 SEQUENCE_COUNT = 12
 SEQUENCE_RANDOM_SEED = 20260427
 STARTLE_LEAD_IN_SECONDS = 2.0
-STARTLE_SEGMENT_SECONDS = 1.4
-STARTLE_GAP_SECONDS = 0.28
 STARTLE_MIN_BURST_PEAK_DB = -2.0
+STARTLE_MIN_ATTACK_MEAN_DB = -18.0
+STARTLE_ATTACK_WINDOW_SECONDS = 0.12
 STARTLE_MAX_LEAD_PEAK_DB = -35.0
 WHITELIST = {
     "bison",
@@ -48,24 +48,79 @@ WHITELIST = {
     "sandhill_crane",
     "stellers_jay",
 }
-STARTLE_SOURCE_SLUGS = {
-    "avalanche",
-    "bighorn_ram",
-    "cannon_fire",
-    "musket_fire",
-    "thunder",
-}
 STARTLE_PATTERNS = [
-    ("startle_burst_01", "Cannon Fire Single", ["cannon_fire"]),
-    ("startle_burst_02", "Musket Fire Single", ["musket_fire"]),
-    ("startle_burst_03", "Bighorn Ram Single", ["bighorn_ram"]),
-    ("startle_burst_04", "Thunder Crack", ["thunder"]),
-    ("startle_burst_05", "Avalanche Bang", ["avalanche"]),
-    ("startle_burst_06", "Cannon Musket Double", ["cannon_fire", "musket_fire"]),
-    ("startle_burst_07", "Musket Ram Double", ["musket_fire", "bighorn_ram"]),
-    ("startle_burst_08", "Ram Cannon Double", ["bighorn_ram", "cannon_fire"]),
-    ("startle_burst_09", "Thunder Musket Double", ["thunder", "musket_fire"]),
-    ("startle_burst_10", "Avalanche Cannon Double", ["avalanche", "cannon_fire"]),
+    ("startle_burst_01", "Basic Gunshot", "oga_basic_gunshot", 1.00, 0.45),
+    ("startle_burst_02", "Clapperboard Thwack 08", "oga_thwack_08", 1.00, 0.50),
+    ("startle_burst_03", "Wood Hammer Clap 01", "oga_wood_hammer_01", 1.00, 0.36),
+    ("startle_burst_04", "Wood Clap Hit 09", "oga_wood_hit_09", 1.00, 0.36),
+    ("startle_burst_05", "Wood Clap Hit 02", "oga_sfx100v2_wood_hit_02", 1.00, 0.42),
+    ("startle_burst_06", "Wood Board Clap", "oga_wood_misc_06", 1.00, 0.45),
+    ("startle_burst_07", "9mm Gunshot Brighter", "commons_9mm_gunshot", 1.08, 0.38),
+    ("startle_burst_08", "Short Thwack 01", "oga_thwack_01", 1.00, 0.38),
+    ("startle_burst_10", "Metal Sheet Clap", "oga_metal_sheet_05", 1.00, 0.36),
+]
+
+STARTLE_COMBO_PATTERNS = [
+    ("startle_combo_01", "Gunshot Clap Stack A", [
+        "startle_burst_01",
+        "startle_burst_02",
+        "startle_burst_03",
+        "startle_burst_07",
+    ]),
+    ("startle_combo_02", "Wood Hit Stack A", [
+        "startle_burst_04",
+        "startle_burst_05",
+        "startle_burst_06",
+        "startle_burst_10",
+    ]),
+    ("startle_combo_03", "Clap Stack A", [
+        "startle_burst_07",
+        "startle_burst_02",
+        "startle_burst_03",
+        "startle_burst_10",
+    ]),
+    ("startle_combo_04", "Mixed Stack A", [
+        "startle_burst_07",
+        "startle_burst_04",
+        "startle_burst_05",
+        "startle_burst_01",
+    ]),
+    ("startle_combo_05", "Mixed Stack B", [
+        "startle_burst_01",
+        "startle_burst_06",
+        "startle_burst_08",
+        "startle_burst_04",
+    ]),
+    ("startle_combo_06", "Gunshot Wood Stack", [
+        "startle_burst_07",
+        "startle_burst_02",
+        "startle_burst_05",
+        "startle_burst_10",
+    ]),
+    ("startle_combo_07", "Clap Wood Stack", [
+        "startle_burst_03",
+        "startle_burst_04",
+        "startle_burst_08",
+        "startle_burst_06",
+    ]),
+    ("startle_combo_08", "Hard Hit Stack", [
+        "startle_burst_01",
+        "startle_burst_10",
+        "startle_burst_04",
+        "startle_burst_07",
+    ]),
+    ("startle_combo_09", "Thwack Stack B", [
+        "startle_burst_01",
+        "startle_burst_06",
+        "startle_burst_03",
+        "startle_burst_08",
+    ]),
+    ("startle_combo_10", "Clap Stack B", [
+        "startle_burst_07",
+        "startle_burst_01",
+        "startle_burst_05",
+        "startle_burst_04",
+    ]),
 ]
 
 
@@ -75,6 +130,18 @@ class SoundSpec:
     title: str
     page_url: str
     category: str
+
+
+@dataclass(frozen=True)
+class DirectSoundSpec:
+    slug: str
+    title: str
+    page_url: str
+    audio_url: str
+    category: str
+    license: str
+    author: str
+    archive_member: str | None = None
 
 
 SOUNDS = [
@@ -261,7 +328,189 @@ SOUNDS = [
 ]
 
 WHITELISTED_SOUNDS = [spec for spec in SOUNDS if spec.slug in WHITELIST]
-STARTLE_SOUNDS = [spec for spec in SOUNDS if spec.slug in STARTLE_SOURCE_SLUGS]
+STARTLE_SOURCES = [
+    DirectSoundSpec(
+        "oga_22_pistol",
+        "22 Pistol",
+        "https://opengameart.org/content/gunshots",
+        "https://opengameart.org/sites/default/files/22%20Pistol.wav",
+        "gunshot",
+        "CC0; OpenGameArt",
+        "kurt",
+    ),
+    DirectSoundSpec(
+        "oga_22_magnum",
+        "22 Magnum",
+        "https://opengameart.org/content/gunshots",
+        "https://opengameart.org/sites/default/files/22%20Magnum.wav",
+        "gunshot",
+        "CC0; OpenGameArt",
+        "kurt",
+    ),
+    DirectSoundSpec(
+        "oga_black_powder",
+        "Black Powder",
+        "https://opengameart.org/content/gunshots",
+        "https://opengameart.org/sites/default/files/Black%20Powder.wav",
+        "gunshot",
+        "CC0; OpenGameArt",
+        "kurt",
+    ),
+    DirectSoundSpec(
+        "oga_basic_gunshot",
+        "Basic Gunshot",
+        "https://opengameart.org/content/basic-sound-effects",
+        "https://opengameart.org/sites/default/files/gunshot_0.mp3",
+        "gunshot",
+        "CC0; OpenGameArt",
+        "n4",
+    ),
+    DirectSoundSpec(
+        "commons_gunshots_8",
+        "Gunshots 8",
+        "https://commons.wikimedia.org/wiki/File:Gunshots_8.ogg",
+        "https://upload.wikimedia.org/wikipedia/commons/e/ee/Gunshots_8.ogg",
+        "gunshot",
+        "Public domain; Wikimedia Commons / PDSounds",
+        "aradlaw",
+    ),
+    DirectSoundSpec(
+        "commons_9mm_gunshot",
+        "9 mm gunshot",
+        "https://commons.wikimedia.org/wiki/File:9_mm_gunshot-mike-koenig-123.wav",
+        "https://upload.wikimedia.org/wikipedia/commons/0/05/9_mm_gunshot-mike-koenig-123.wav",
+        "gunshot",
+        "CC BY-SA 4.0; Wikimedia Commons",
+        "Dantedun",
+    ),
+    DirectSoundSpec(
+        "oga_chunky_explosion",
+        "Chunky Explosion",
+        "https://opengameart.org/content/chunky-explosion",
+        "https://opengameart.org/sites/default/files/Chunky%20Explosion.mp3",
+        "explosion",
+        "CC0; OpenGameArt",
+        "Joth",
+    ),
+    DirectSoundSpec(
+        "oga_retro_explosion",
+        "Retro Explosion",
+        "https://opengameart.org/content/explosion-0",
+        "https://opengameart.org/sites/default/files/explosion.wav",
+        "explosion",
+        "CC0; OpenGameArt",
+        "TinyWorlds",
+    ),
+    DirectSoundSpec(
+        "oga_basic_explosion",
+        "Basic Explosion",
+        "https://opengameart.org/content/basic-sound-effects",
+        "https://opengameart.org/sites/default/files/explosion_0.mp3",
+        "explosion",
+        "CC0; OpenGameArt",
+        "n4",
+    ),
+    DirectSoundSpec(
+        "commons_clap_leaving",
+        "Clapping Then Leaving",
+        "https://commons.wikimedia.org/wiki/File:619016_mrrap4food_clapping-then-leaving.mp3",
+        "https://upload.wikimedia.org/wikipedia/commons/0/02/619016_mrrap4food_clapping-then-leaving.mp3",
+        "clap",
+        "CC0; Wikimedia Commons / Freesound",
+        "mrrap4food",
+    ),
+    DirectSoundSpec(
+        "oga_thwack_08",
+        "Thwack 08",
+        "https://opengameart.org/content/thwack-sounds",
+        "https://opengameart.org/sites/default/files/thwack-1.0.zip",
+        "clap/slap",
+        "CC0; OpenGameArt",
+        "Jordan Irwin (AntumDeluge)",
+        "PCM/thwack-08.wav",
+    ),
+    DirectSoundSpec(
+        "oga_thwack_03",
+        "Thwack 03",
+        "https://opengameart.org/content/thwack-sounds",
+        "https://opengameart.org/sites/default/files/thwack-1.0.zip",
+        "clap/slap",
+        "CC0; OpenGameArt",
+        "Jordan Irwin (AntumDeluge)",
+        "PCM/thwack-03.wav",
+    ),
+    DirectSoundSpec(
+        "oga_thwack_01",
+        "Thwack 01",
+        "https://opengameart.org/content/thwack-sounds",
+        "https://opengameart.org/sites/default/files/thwack-1.0.zip",
+        "clap/slap",
+        "CC0; OpenGameArt",
+        "Jordan Irwin (AntumDeluge)",
+        "PCM/thwack-01.wav",
+    ),
+    DirectSoundSpec(
+        "oga_wood_hit_09",
+        "Wood Hit 09",
+        "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+        "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+        "wood clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "wood_hit_09.ogg",
+    ),
+    DirectSoundSpec(
+        "oga_wood_hammer_01",
+        "Wood Hammer 01",
+        "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+        "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+        "wood clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "wood_hammer_01.ogg",
+    ),
+    DirectSoundSpec(
+        "oga_wood_misc_06",
+        "Wood Misc 06",
+        "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+        "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+        "wood clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "wood_misc_06.ogg",
+    ),
+    DirectSoundSpec(
+        "oga_wood_hit_07",
+        "Wood Hit 07",
+        "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+        "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+        "wood clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "wood_hit_07.ogg",
+    ),
+    DirectSoundSpec(
+        "oga_metal_sheet_05",
+        "Metal Sheet 05",
+        "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+        "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+        "metal clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "metal_sheet_05.ogg",
+    ),
+    DirectSoundSpec(
+        "oga_sfx100v2_wood_hit_02",
+        "SFX100v2 Wood Hit 02",
+        "https://opengameart.org/content/100-cc0-sfx-2",
+        "https://opengameart.org/sites/default/files/sfx_100_v2.zip",
+        "wood clap/hit",
+        "CC0; OpenGameArt",
+        "rubberduck",
+        "sfx100v2_wood_hit_02.ogg",
+    ),
+]
+STARTLE_SOURCES_BY_SLUG = {spec.slug: spec for spec in STARTLE_SOURCES}
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -297,8 +546,31 @@ def download(spec: SoundSpec) -> tuple[Path, str]:
     audio_url = find_audio_url(spec.page_url)
     suffix = Path(audio_url.split("?", 1)[0]).suffix or ".mp3"
     source_path = SOURCE_DIR / f"{spec.slug}{suffix}"
-    source_path.write_bytes(fetch_bytes(audio_url))
+    if not source_path.exists():
+        source_path.write_bytes(fetch_bytes(audio_url))
     return source_path, audio_url
+
+
+def download_direct(spec: DirectSoundSpec) -> Path:
+    if spec.archive_member is not None:
+        archive_suffix = Path(spec.audio_url.split("?", 1)[0]).suffix or ".zip"
+        archive_path = SOURCE_DIR / f"{spec.slug}_archive{archive_suffix}"
+        member_path = Path(spec.archive_member)
+        source_path = SOURCE_DIR / f"{spec.slug}{member_path.suffix}"
+        if not source_path.exists():
+            if not archive_path.exists():
+                archive_path.write_bytes(fetch_bytes(spec.audio_url))
+            with zipfile.ZipFile(archive_path) as archive:
+                if spec.archive_member not in archive.namelist():
+                    raise RuntimeError(f"{spec.archive_member} not found in {archive_path}")
+                source_path.write_bytes(archive.read(spec.archive_member))
+        return source_path
+
+    suffix = Path(spec.audio_url.split("?", 1)[0]).suffix or ".mp3"
+    source_path = SOURCE_DIR / f"{spec.slug}{suffix}"
+    if not source_path.exists():
+        source_path.write_bytes(fetch_bytes(spec.audio_url))
+    return source_path
 
 
 def normalize(source_path: Path, output_path: Path) -> None:
@@ -415,16 +687,20 @@ def make_silence(output_path: Path, duration_seconds: float) -> None:
     )
 
 
-def prepare_startle_segment(source_path: Path, output_path: Path) -> None:
+def prepare_startle_segment(source_path: Path, output_path: Path,
+                            segment_seconds: float,
+                            pitch_factor: float) -> None:
+    sample_rate = max(32000, int(round(44100 * pitch_factor)))
     filter_graph = (
         "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
-        f"atrim=0:{STARTLE_SEGMENT_SECONDS},"
+        f"apad=pad_dur={segment_seconds},atrim=0:{segment_seconds},"
         "asetpts=PTS-STARTPTS,"
-        "highpass=f=100,"
-        "afade=t=in:st=0:d=0.005,"
-        f"afade=t=out:st={max(0.0, STARTLE_SEGMENT_SECONDS - 0.08):.3f}:d=0.08,"
-        "loudnorm=I=-8:TP=-0.8:LRA=4,"
-        "volume=5dB,"
+        f"asetrate={sample_rate},aresample=44100,"
+        "highpass=f=140,"
+        "afade=t=in:st=0:d=0.002,"
+        f"afade=t=out:st={max(0.0, segment_seconds - 0.04):.3f}:d=0.04,"
+        "loudnorm=I=-5:TP=-0.7:LRA=2,"
+        "volume=8dB,"
         "alimiter=limit=0.91:level=false"
     )
     subprocess.run(
@@ -440,19 +716,17 @@ def prepare_startle_segment(source_path: Path, output_path: Path) -> None:
             filter_graph,
             "-ac",
             "1",
-            "-ar",
-            "44100",
-            str(output_path),
-        ],
-        check=True,
-    )
+                "-ar",
+                "44100",
+                str(output_path),
+            ],
+            check=True,
+        )
 
 
-def build_startle_burst(source_paths: list[Path], output_path: Path) -> list[str]:
+def build_startle_burst(source_path: Path, output_path: Path,
+                        pitch_factor: float, segment_seconds: float) -> list[str]:
     """Build a short startle clip with two seconds of lead-in silence."""
-    if not source_paths:
-        raise ValueError("at least one source path is required")
-
     temp_dir = output_path.with_suffix(".tmp")
     temp_dir.mkdir(parents=True, exist_ok=True)
     pieces = []
@@ -462,14 +736,9 @@ def build_startle_burst(source_paths: list[Path], output_path: Path) -> list[str
         make_silence(lead_path, STARTLE_LEAD_IN_SECONDS)
         pieces.append(lead_path)
 
-        for index, source_path in enumerate(source_paths):
-            segment_path = temp_dir / f"segment_{index}.wav"
-            prepare_startle_segment(source_path, segment_path)
-            pieces.append(segment_path)
-            if index < len(source_paths) - 1:
-                gap_path = temp_dir / f"gap_{index}.wav"
-                make_silence(gap_path, STARTLE_GAP_SECONDS)
-                pieces.append(gap_path)
+        segment_path = temp_dir / "segment.wav"
+        prepare_startle_segment(source_path, segment_path, segment_seconds, pitch_factor)
+        pieces.append(segment_path)
 
         concat_file = temp_dir / "concat.txt"
         concat_file.write_text(
@@ -492,6 +761,63 @@ def build_startle_burst(source_paths: list[Path], output_path: Path) -> list[str
                 str(concat_file),
                 "-af",
                 filter_graph,
+                "-ac",
+                "1",
+                "-ar",
+                "44100",
+                "-b:a",
+                "192k",
+                str(output_path),
+            ],
+            check=True,
+        )
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    return [source_path.stem]
+
+
+def build_startle_combo(source_paths: list[Path], output_path: Path) -> list[str]:
+    """Build a short startle clip from four existing startle files."""
+    temp_dir = output_path.with_suffix(".combo.tmp")
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    pieces = []
+
+    try:
+        lead_path = temp_dir / "lead.wav"
+        make_silence(lead_path, STARTLE_LEAD_IN_SECONDS)
+        pieces.append(lead_path)
+
+        for index, source_path in enumerate(source_paths):
+            segment_path = temp_dir / f"segment_{index:02d}.wav"
+            prepare_combo_segment(source_path, segment_path, 0.60)
+            pieces.append(segment_path)
+
+            if index != len(source_paths) - 1:
+                gap_path = temp_dir / f"gap_{index:02d}.wav"
+                make_silence(gap_path, 0.08)
+                pieces.append(gap_path)
+
+        concat_file = temp_dir / "concat.txt"
+        concat_file.write_text(
+            "".join(f"file '{path.resolve()}'\n" for path in pieces),
+            encoding="utf-8",
+        )
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_file),
+                "-af",
+                "alimiter=limit=0.89:level=false",
                 "-ac",
                 "1",
                 "-ar",
@@ -611,6 +937,37 @@ def first_loud_time(path: Path, threshold_db: str = "-35dB") -> float | None:
     return round(float(match.group(1)), 3)
 
 
+def prepare_combo_segment(source_path: Path, output_path: Path, segment_seconds: float) -> None:
+    filter_graph = (
+        "silenceremove=start_periods=1:start_duration=0.02:start_threshold=-45dB,"
+        f"atrim=0:{segment_seconds},"
+        "afade=t=in:st=0:d=0.003,"
+        f"afade=t=out:st={max(0.0, segment_seconds - 0.06):.3f}:d=0.06,"
+        "alimiter=limit=0.91:level=false"
+    )
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(source_path),
+            "-af",
+            filter_graph,
+            "-ac",
+            "1",
+            "-ar",
+            "44100",
+            "-b:a",
+            "192k",
+            str(output_path),
+        ],
+        check=True,
+    )
+
+
 def inspect_startle(path: Path) -> dict[str, float | None]:
     levels = measure(path)
     lead = measure_segment(path, 0, max(0.1, STARTLE_LEAD_IN_SECONDS - 0.1))
@@ -642,7 +999,11 @@ def main() -> int:
     if missing:
         print(f"Whitelist contains unknown sound slugs: {sorted(missing)}", file=sys.stderr)
         return 1
-    missing_startle = STARTLE_SOURCE_SLUGS - {spec.slug for spec in STARTLE_SOUNDS}
+    missing_startle = {
+        source_slug
+        for _, _, source_slug, _, _ in STARTLE_PATTERNS
+        if source_slug not in STARTLE_SOURCES_BY_SLUG
+    }
     if missing_startle:
         print(f"Startle source list contains unknown sound slugs: {sorted(missing_startle)}", file=sys.stderr)
         return 1
@@ -672,12 +1033,10 @@ def main() -> int:
         )
 
     startle_source_paths = {}
-    startle_source_urls = {}
-    for spec in STARTLE_SOUNDS:
+    for spec in STARTLE_SOURCES:
         print(f"Processing startle source {spec.slug}...", flush=True)
-        source_path, audio_url = download(spec)
+        source_path = download_direct(spec)
         startle_source_paths[spec.slug] = source_path
-        startle_source_urls[spec.slug] = audio_url
 
     rng = random.Random(SEQUENCE_RANDOM_SEED)
     sequence_manifest = []
@@ -702,18 +1061,31 @@ def main() -> int:
         )
 
     startle_manifest = []
-    for slug, title, source_slugs in STARTLE_PATTERNS:
+    for slug, title, source_slug, pitch_factor, segment_seconds in STARTLE_PATTERNS:
         print(f"Building {slug}...", flush=True)
         output_path = OUTPUT_DIR / f"{slug}.mp3"
-        source_paths = [startle_source_paths[source_slug] for source_slug in source_slugs]
-        source_sequence = build_startle_burst(source_paths, output_path)
+        source_spec = STARTLE_SOURCES_BY_SLUG[source_slug]
+        source_path = startle_source_paths[source_slug]
+        source_sequence = build_startle_burst(
+            source_path,
+            output_path,
+            pitch_factor,
+            segment_seconds,
+        )
         levels = inspect_startle(output_path)
+        attack = measure_segment(
+            output_path,
+            STARTLE_LEAD_IN_SECONDS - 0.05,
+            STARTLE_ATTACK_WINDOW_SECONDS,
+        )
 
         first_loud = levels["first_loud_time_s"]
         if levels["lead_peak_db"] > STARTLE_MAX_LEAD_PEAK_DB:
             failures.append((slug, {"lead_peak_db": levels["lead_peak_db"]}))
         if levels["burst_peak_db"] < STARTLE_MIN_BURST_PEAK_DB:
             failures.append((slug, {"burst_peak_db": levels["burst_peak_db"]}))
+        if attack["mean_db"] < STARTLE_MIN_ATTACK_MEAN_DB:
+            failures.append((slug, {"attack_mean_db": attack["mean_db"]}))
         if first_loud is None or first_loud < STARTLE_LEAD_IN_SECONDS - 0.15:
             failures.append((slug, {"first_loud_time_s": first_loud}))
 
@@ -724,21 +1096,75 @@ def main() -> int:
                 "title": title,
                 "category": "short impulsive startle with 2s lead-in silence",
                 "source_clips": source_sequence,
-                "source_pages": [
-                    next(spec.page_url for spec in STARTLE_SOUNDS if spec.slug == source_slug)
-                    for source_slug in source_slugs
-                ],
-                "source_audio": [
-                    startle_source_urls[source_slug]
-                    for source_slug in source_slugs
-                ],
-                "license": "Public domain; National Park Service Sound Gallery",
+                "source_slug": source_spec.slug,
+                "source_page": source_spec.page_url,
+                "source_audio": source_spec.audio_url,
+                "source_author": source_spec.author,
+                "license": source_spec.license,
                 "lead_in_seconds": STARTLE_LEAD_IN_SECONDS,
+                "pitch_factor": pitch_factor,
+                "attack_window_seconds": STARTLE_ATTACK_WINDOW_SECONDS,
+                "attack_mean_db": attack["mean_db"],
+                "attack_peak_db": attack["peak_db"],
                 **levels,
             }
         )
 
-    manifest = sequence_manifest + startle_manifest + clip_manifest
+    combo_manifest = []
+    combo_source_paths = {
+        path.stem: path
+        for path in OUTPUT_DIR.glob("startle_burst_*.mp3")
+    }
+    missing_combo = {
+        source_name
+        for _, _, source_names in STARTLE_COMBO_PATTERNS
+        for source_name in source_names
+        if source_name not in combo_source_paths
+    }
+    if missing_combo:
+        print(f"Missing combo sources: {sorted(missing_combo)}", file=sys.stderr)
+        return 1
+
+    for slug, title, source_names in STARTLE_COMBO_PATTERNS:
+        print(f"Building {slug}...", flush=True)
+        output_path = OUTPUT_DIR / f"{slug}.mp3"
+        source_paths = [combo_source_paths[name] for name in source_names]
+        source_sequence = build_startle_combo(source_paths, output_path)
+        levels = inspect_startle(output_path)
+        attack = measure_segment(
+            output_path,
+            STARTLE_LEAD_IN_SECONDS - 0.05,
+            STARTLE_ATTACK_WINDOW_SECONDS,
+        )
+
+        first_loud = levels["first_loud_time_s"]
+        if levels["lead_peak_db"] > STARTLE_MAX_LEAD_PEAK_DB:
+            failures.append((slug, {"lead_peak_db": levels["lead_peak_db"]}))
+        if levels["burst_peak_db"] < STARTLE_MIN_BURST_PEAK_DB:
+            failures.append((slug, {"burst_peak_db": levels["burst_peak_db"]}))
+        if attack["mean_db"] < STARTLE_MIN_ATTACK_MEAN_DB:
+            failures.append((slug, {"attack_mean_db": attack["mean_db"]}))
+        if first_loud is None or first_loud < STARTLE_LEAD_IN_SECONDS - 0.15:
+            failures.append((slug, {"first_loud_time_s": first_loud}))
+
+        combo_manifest.append(
+            {
+                "file": str(output_path.relative_to(ROOT)),
+                "kind": "startle_combo",
+                "title": title,
+                "category": "4-sound combo with 2s lead-in silence",
+                "source_clips": source_sequence,
+                "source_kind": "startle_burst",
+                "source_count": len(source_sequence),
+                "lead_in_seconds": STARTLE_LEAD_IN_SECONDS,
+                "attack_window_seconds": STARTLE_ATTACK_WINDOW_SECONDS,
+                "attack_mean_db": attack["mean_db"],
+                "attack_peak_db": attack["peak_db"],
+                **levels,
+            }
+        )
+
+    manifest = sequence_manifest + startle_manifest + combo_manifest + clip_manifest
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     print()

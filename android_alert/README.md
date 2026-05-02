@@ -33,18 +33,21 @@ Android phone that can run Termux, VLC, and stay on Wi-Fi.
 ## Generate Or Refresh Sounds
 
 The committed `sounds/` folder contains normalized public-domain alert
-sequences and short startle-burst test clips.
+sequences and short startle-burst test clips from downloaded gunshot,
+clap/thwack, wood-hit, and explosion candidate sources.
 To regenerate them:
 
 ```sh
 ./android_alert/download_scare_sounds.py
 ```
 
-The script downloads the curated National Park Service Sound Gallery whitelist,
-normalizes the source clips with `ffmpeg`, creates 20-second random
-concatenation/repetition alert sequences, creates short `startle_burst_*.mp3`
-files with 2 seconds of lead-in silence, and verifies levels with
-`volumedetect`/`silencedetect`. Metadata and level checks are written to
+The script downloads the curated National Park Service Sound Gallery whitelist
+and separate startle candidates, normalizes the source clips with `ffmpeg`,
+creates 20-second random concatenation/repetition alert sequences, creates
+short `startle_burst_*.mp3` files with 2 seconds of lead-in silence, and
+verifies levels with `volumedetect`/`silencedetect`. It also builds
+`startle_combo_*.mp3` files by combining four preserved startle sources.
+Metadata, licenses, source URLs, and level checks are written to
 `android_alert/sounds/manifest.json`.
 
 ## Deploy With USB ADB
@@ -125,10 +128,10 @@ Health check:
 curl -fsS http://PHONE_IP:8765/health
 ```
 
-Expected response after the startle-burst sound set is active:
+Expected response after the startle-combo sound set is active:
 
 ```json
-{"ok":true,"sounds":10,"available_sounds":31,"alert_kind":"startle_burst","min_duration_s":0.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
+{"ok":true,"sounds":10,"available_sounds":40,"sound_counts":{"available":40,"by_kind":{"alert_sequence":12,"source_clip":9,"startle_burst":9,"startle_combo":10},"duration_filtered":0,"selected":10},"alert_kind":"startle_combo","min_duration_s":0.0,"alert_dir":"/sdcard/Download/pigeon-setup/sounds"}
 ```
 
 Trigger one alert:
@@ -143,7 +146,7 @@ If you did not set `BIRD_ALERT_TOKEN`, omit the header.
 The response includes the selected sound file:
 
 ```json
-{"ok":true,"alert":{"file":"startle_burst_03.mp3","path":"/sdcard/Download/pigeon-setup/sounds/startle_burst_03.mp3","timestamp":1777280000.0}}
+{"ok":true,"alert":{"file":"startle_combo_03.mp3","path":"/sdcard/Download/pigeon-setup/sounds/startle_combo_03.mp3","timestamp":1777280000.0}}
 ```
 
 Check the last selected file:
@@ -235,15 +238,15 @@ export BIRD_ALERT_DIR=/sdcard/Download/pigeon-setup/sounds
 export BIRD_ALERT_FILE=/sdcard/Download/pigeon-setup/alert.mp3
 export BIRD_ALERT_COOLDOWN=2
 export BIRD_ALERT_MIN_DURATION=0
-export BIRD_ALERT_KIND=startle_burst
+export BIRD_ALERT_KIND=startle_combo
 ```
 
 The receiver avoids repeating the exact same file twice in a row when multiple
 sounds are available. If `sounds/manifest.json` is present, the current default
-setup plays only `kind=startle_burst` entries. Set
-`BIRD_ALERT_KIND=alert_sequence` and `BIRD_ALERT_MIN_DURATION=5.0` to return to
-the older 20-second sequence files. Use `BIRD_ALERT_KIND=any` to include every
-manifest entry.
+setup plays only `kind=startle_combo` entries. Set `BIRD_ALERT_KIND=startle_burst`
+to use the preserved single-hit files, `BIRD_ALERT_KIND=alert_sequence` and
+`BIRD_ALERT_MIN_DURATION=5.0` to return to the older 20-second sequence files,
+or `BIRD_ALERT_KIND=any` to include every manifest entry.
 
 ## Troubleshooting
 

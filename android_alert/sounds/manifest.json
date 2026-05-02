@@ -200,22 +200,24 @@
   {
     "file": "sounds/startle_burst_01.mp3",
     "kind": "startle_burst",
-    "title": "Cannon Fire Single",
+    "title": "Basic Gunshot",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "cannon_fire"
+      "oga_basic_gunshot"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_basic_gunshot",
+    "source_page": "https://opengameart.org/content/basic-sound-effects",
+    "source_audio": "https://opengameart.org/sites/default/files/gunshot_0.mp3",
+    "source_author": "n4",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -23.4,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -13.4,
+    "attack_peak_db": -1.3,
+    "mean_db": -20.8,
     "peak_db": -1.3,
-    "duration_seconds": 3.448,
+    "duration_seconds": 2.482,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
     "first_loud_time_s": 2.01
@@ -223,45 +225,49 @@
   {
     "file": "sounds/startle_burst_02.mp3",
     "kind": "startle_burst",
-    "title": "Musket Fire Single",
+    "title": "Clapperboard Thwack 08",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "musket_fire"
+      "oga_thwack_08"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_thwack_08",
+    "source_page": "https://opengameart.org/content/thwack-sounds",
+    "source_audio": "https://opengameart.org/sites/default/files/thwack-1.0.zip",
+    "source_author": "Jordan Irwin (AntumDeluge)",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -19.5,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.5,
+    "attack_peak_db": -1.3,
+    "mean_db": -25.8,
     "peak_db": -1.3,
-    "duration_seconds": 3.448,
+    "duration_seconds": 2.534,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
-    "first_loud_time_s": 2.011
+    "first_loud_time_s": 2.01
   },
   {
     "file": "sounds/startle_burst_03.mp3",
     "kind": "startle_burst",
-    "title": "Bighorn Ram Single",
+    "title": "Wood Hammer Clap 01",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "bighorn_ram"
+      "oga_wood_hammer_01"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_wood_hammer_01",
+    "source_page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "source_audio": "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+    "source_author": "rubberduck",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -27.8,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -13.1,
+    "attack_peak_db": -1.3,
+    "mean_db": -24.3,
     "peak_db": -1.3,
-    "duration_seconds": 3.448,
+    "duration_seconds": 2.429,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
     "first_loud_time_s": 2.01
@@ -269,71 +275,74 @@
   {
     "file": "sounds/startle_burst_04.mp3",
     "kind": "startle_burst",
-    "title": "Thunder Crack",
+    "title": "Wood Clap Hit 09",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "thunder"
+      "oga_wood_hit_09"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-thunder.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Thunder.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_wood_hit_09",
+    "source_page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "source_audio": "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+    "source_author": "rubberduck",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -17.3,
-    "peak_db": -1.2,
-    "duration_seconds": 3.448,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -12.1,
+    "attack_peak_db": -1.3,
+    "mean_db": -24.7,
+    "peak_db": -1.3,
+    "duration_seconds": 2.429,
     "lead_peak_db": -91.0,
-    "burst_peak_db": -1.2,
+    "burst_peak_db": -0.8,
     "first_loud_time_s": 2.01
   },
   {
     "file": "sounds/startle_burst_05.mp3",
     "kind": "startle_burst",
-    "title": "Avalanche Bang",
+    "title": "Wood Clap Hit 02",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "avalanche"
+      "oga_sfx100v2_wood_hit_02"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/avalanche.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-AvalancheDENA.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_sfx100v2_wood_hit_02",
+    "source_page": "https://opengameart.org/content/100-cc0-sfx-2",
+    "source_audio": "https://opengameart.org/sites/default/files/sfx_100_v2.zip",
+    "source_author": "rubberduck",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -21.0,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.1,
+    "attack_peak_db": -1.3,
+    "mean_db": -26.2,
     "peak_db": -1.3,
-    "duration_seconds": 3.448,
+    "duration_seconds": 2.482,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
-    "first_loud_time_s": 2.026
+    "first_loud_time_s": 2.01
   },
   {
     "file": "sounds/startle_burst_06.mp3",
     "kind": "startle_burst",
-    "title": "Cannon Musket Double",
+    "title": "Wood Board Clap",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "cannon_fire",
-      "musket_fire"
+      "oga_wood_misc_06"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-cannon.htm",
-      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3",
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_wood_misc_06",
+    "source_page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "source_audio": "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+    "source_author": "rubberduck",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -19.8,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -11.9,
+    "attack_peak_db": -1.3,
+    "mean_db": -20.9,
     "peak_db": -1.3,
-    "duration_seconds": 5.12,
+    "duration_seconds": 2.534,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
     "first_loud_time_s": 2.01
@@ -341,106 +350,317 @@
   {
     "file": "sounds/startle_burst_07.mp3",
     "kind": "startle_burst",
-    "title": "Musket Ram Double",
+    "title": "9mm Gunshot Brighter",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "musket_fire",
-      "bighorn_ram"
+      "commons_9mm_gunshot"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-musket.htm",
-      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3",
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "commons_9mm_gunshot",
+    "source_page": "https://commons.wikimedia.org/wiki/File:9_mm_gunshot-mike-koenig-123.wav",
+    "source_audio": "https://upload.wikimedia.org/wikipedia/commons/0/05/9_mm_gunshot-mike-koenig-123.wav",
+    "source_author": "Dantedun",
+    "license": "CC BY-SA 4.0; Wikimedia Commons",
     "lead_in_seconds": 2.0,
-    "mean_db": -20.6,
-    "peak_db": -1.3,
-    "duration_seconds": 5.12,
+    "pitch_factor": 1.08,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.2,
+    "attack_peak_db": -1.1,
+    "mean_db": -20.5,
+    "peak_db": -1.1,
+    "duration_seconds": 2.403,
     "lead_peak_db": -91.0,
-    "burst_peak_db": -1.3,
-    "first_loud_time_s": 2.011
+    "burst_peak_db": -1.1,
+    "first_loud_time_s": 2.012
   },
   {
     "file": "sounds/startle_burst_08.mp3",
     "kind": "startle_burst",
-    "title": "Ram Cannon Double",
+    "title": "Short Thwack 01",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "bighorn_ram",
-      "cannon_fire"
+      "oga_thwack_01"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-bighorn-ram.htm",
-      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-BighornSheepRammingHeadsZION.mp3",
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_thwack_01",
+    "source_page": "https://opengameart.org/content/thwack-sounds",
+    "source_audio": "https://opengameart.org/sites/default/files/thwack-1.0.zip",
+    "source_author": "Jordan Irwin (AntumDeluge)",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -23.8,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.3,
+    "attack_peak_db": -1.3,
+    "mean_db": -25.5,
     "peak_db": -1.3,
-    "duration_seconds": 5.12,
+    "duration_seconds": 2.429,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
-    "first_loud_time_s": 2.01
-  },
-  {
-    "file": "sounds/startle_burst_09.mp3",
-    "kind": "startle_burst",
-    "title": "Thunder Musket Double",
-    "category": "short impulsive startle with 2s lead-in silence",
-    "source_clips": [
-      "thunder",
-      "musket_fire"
-    ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/sounds-thunder.htm",
-      "https://www.nps.gov/subjects/sound/sounds-musket.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-Thunder.mp3",
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-MusketFireMIMA.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
-    "lead_in_seconds": 2.0,
-    "mean_db": -17.0,
-    "peak_db": -1.2,
-    "duration_seconds": 5.12,
-    "lead_peak_db": -91.0,
-    "burst_peak_db": -1.2,
     "first_loud_time_s": 2.01
   },
   {
     "file": "sounds/startle_burst_10.mp3",
     "kind": "startle_burst",
-    "title": "Avalanche Cannon Double",
+    "title": "Metal Sheet Clap",
     "category": "short impulsive startle with 2s lead-in silence",
     "source_clips": [
-      "avalanche",
-      "cannon_fire"
+      "oga_metal_sheet_05"
     ],
-    "source_pages": [
-      "https://www.nps.gov/subjects/sound/avalanche.htm",
-      "https://www.nps.gov/subjects/sound/sounds-cannon.htm"
-    ],
-    "source_audio": [
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-AvalancheDENA.mp3",
-      "https://www.nps.gov/nps-audiovideo/legacy/mp3/nri/avElement/nri-cannon.mp3"
-    ],
-    "license": "Public domain; National Park Service Sound Gallery",
+    "source_slug": "oga_metal_sheet_05",
+    "source_page": "https://opengameart.org/content/100-cc0-metal-and-wood-sfx",
+    "source_audio": "https://opengameart.org/sites/default/files/100-CC0-wood-metal-SFX.zip",
+    "source_author": "rubberduck",
+    "license": "CC0; OpenGameArt",
     "lead_in_seconds": 2.0,
-    "mean_db": -20.7,
+    "pitch_factor": 1.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.2,
+    "attack_peak_db": -1.3,
+    "mean_db": -26.2,
     "peak_db": -1.3,
-    "duration_seconds": 5.12,
+    "duration_seconds": 2.429,
     "lead_peak_db": -91.0,
     "burst_peak_db": -1.3,
-    "first_loud_time_s": 2.026
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_01.mp3",
+    "kind": "startle_combo",
+    "title": "Gunshot Clap Stack A",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_01",
+      "startle_burst_02",
+      "startle_burst_03",
+      "startle_burst_07"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.2,
+    "attack_peak_db": -1.5,
+    "mean_db": -19.3,
+    "peak_db": -1.4,
+    "duration_seconds": 3.84,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.4,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_02.mp3",
+    "kind": "startle_combo",
+    "title": "Wood Hit Stack A",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_04",
+      "startle_burst_05",
+      "startle_burst_06",
+      "startle_burst_10"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -16.5,
+    "attack_peak_db": -2.8,
+    "mean_db": -21.8,
+    "peak_db": -1.5,
+    "duration_seconds": 3.892,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.5,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_03.mp3",
+    "kind": "startle_combo",
+    "title": "Clap Stack A",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_07",
+      "startle_burst_02",
+      "startle_burst_03",
+      "startle_burst_10"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.6,
+    "attack_peak_db": -1.2,
+    "mean_db": -20.7,
+    "peak_db": -1.2,
+    "duration_seconds": 3.788,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_04.mp3",
+    "kind": "startle_combo",
+    "title": "Mixed Stack A",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_07",
+      "startle_burst_04",
+      "startle_burst_05",
+      "startle_burst_01"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.6,
+    "attack_peak_db": -1.2,
+    "mean_db": -19.5,
+    "peak_db": -1.2,
+    "duration_seconds": 3.814,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_05.mp3",
+    "kind": "startle_combo",
+    "title": "Mixed Stack B",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_01",
+      "startle_burst_06",
+      "startle_burst_08",
+      "startle_burst_04"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.2,
+    "attack_peak_db": -1.5,
+    "mean_db": -19.7,
+    "peak_db": -1.5,
+    "duration_seconds": 3.866,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.5,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_06.mp3",
+    "kind": "startle_combo",
+    "title": "Gunshot Wood Stack",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_07",
+      "startle_burst_02",
+      "startle_burst_05",
+      "startle_burst_10"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.6,
+    "attack_peak_db": -1.2,
+    "mean_db": -21.1,
+    "peak_db": -1.2,
+    "duration_seconds": 3.866,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_07.mp3",
+    "kind": "startle_combo",
+    "title": "Clap Wood Stack",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_03",
+      "startle_burst_04",
+      "startle_burst_08",
+      "startle_burst_06"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.6,
+    "attack_peak_db": -1.5,
+    "mean_db": -21.1,
+    "peak_db": -1.3,
+    "duration_seconds": 3.814,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.3,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_08.mp3",
+    "kind": "startle_combo",
+    "title": "Hard Hit Stack",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_01",
+      "startle_burst_10",
+      "startle_burst_04",
+      "startle_burst_07"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.2,
+    "attack_peak_db": -1.5,
+    "mean_db": -19.5,
+    "peak_db": -1.4,
+    "duration_seconds": 3.736,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.4,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_09.mp3",
+    "kind": "startle_combo",
+    "title": "Thwack Stack B",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_01",
+      "startle_burst_06",
+      "startle_burst_03",
+      "startle_burst_08"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -15.2,
+    "attack_peak_db": -1.5,
+    "mean_db": -19.4,
+    "peak_db": -1.5,
+    "duration_seconds": 3.866,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.5,
+    "first_loud_time_s": 2.01
+  },
+  {
+    "file": "sounds/startle_combo_10.mp3",
+    "kind": "startle_combo",
+    "title": "Clap Stack B",
+    "category": "4-sound combo with 2s lead-in silence",
+    "source_clips": [
+      "startle_burst_07",
+      "startle_burst_01",
+      "startle_burst_05",
+      "startle_burst_04"
+    ],
+    "source_kind": "startle_burst",
+    "source_count": 4,
+    "lead_in_seconds": 2.0,
+    "attack_window_seconds": 0.12,
+    "attack_mean_db": -14.6,
+    "attack_peak_db": -1.2,
+    "mean_db": -19.5,
+    "peak_db": -1.2,
+    "duration_seconds": 3.814,
+    "lead_peak_db": -91.0,
+    "burst_peak_db": -1.2,
+    "first_loud_time_s": 2.01
   },
   {
     "file": "sounds/clip_common_raven.mp3",
