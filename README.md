@@ -19,6 +19,42 @@ python benchmark/live_detect.py \
   --alert-cooldown 60
 ```
 
+Windows 10 with LM Studio running locally:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python -m pip install -r benchmark\requirements-live.txt
+.\restart_detection.ps1
+```
+
+If PowerShell blocks local scripts, run the same command with a one-time
+execution-policy bypass:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\restart_detection.ps1
+```
+
+The Windows restart script uses the local LM Studio API at
+`http://localhost:1234/v1` with the `windows` backend preset. Override the
+model id if LM Studio exposes a different one:
+
+```powershell
+.\restart_detection.ps1 -Model "qwen3.6-35b-a3b@q4_k_xl"
+```
+
+For a one-off foreground run on Windows:
+
+```powershell
+.\.venv\Scripts\python benchmark\live_detect.py `
+  --backend windows `
+  --no-think `
+  --preset-cycle 1,2 `
+  --preset-dwell 55 `
+  --vlm-max-size 1440x810 `
+  --alert-url http://PHONE_IP:8765/bird `
+  --alert-cooldown 60
+```
+
 After a bird detection, the detector saves a continuous RTSP audio/video clip
 for 1.5 minutes by default as `postbird_av_*.mp4`. Configure the duration with
 `--post-detect-save-seconds`; use `0` or `--post-detect-mode off` to disable it.
@@ -40,6 +76,8 @@ python benchmark/benchmark_vlm.py --backend mac --dataset balcony --no-think
 benchmark/live_detect.py        live RTSP detector, PTZ cycling, motion gating, alerts
 benchmark/benchmark_vlm.py      offline VLM benchmark
 benchmark/ptz_control.py        Tapo PTZ helper
+restart_detection.ps1           Windows PowerShell restart helper
+restart_detection.sh            macOS/Linux restart helper
 android_alert/README.md         Android phone alert setup and reproduction guide
 android_alert/sounds/           normalized random alert sound set
 TODO.md                         follow-up implementation notes
@@ -49,6 +87,12 @@ TODO.md                         follow-up implementation notes
 
 The Tapo camera supports only one RTSP session. Close the Tapo app before
 starting live detection.
+
+Windows 10 requirements: Python 3, FFmpeg on `PATH`, local LM Studio with an
+OpenAI-compatible server enabled, and network access to the camera and Android
+phone receiver. The Android phone setup still runs inside Termux on the phone;
+Windows can deploy the files with `android_alert\deploy_adb.ps1` if ADB is
+installed.
 
 The RTSP stream exposes audio. The default AV follow-up mode releases the
 OpenCV detector stream before starting ffmpeg, because the Tapo camera appears

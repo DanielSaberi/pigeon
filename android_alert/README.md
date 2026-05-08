@@ -1,6 +1,6 @@
 # Android Alert Receiver
 
-This turns an Android phone into a local Wi-Fi alert player. The Mac detector
+This turns an Android phone into a local Wi-Fi alert player. The detector
 sends `POST /bird` to the phone, and the phone plays a random deterrent sound
 through whatever Android currently uses as media output, typically a Bluetooth
 speaker near the balcony.
@@ -10,16 +10,28 @@ devices while bird alerts are handled by the phone.
 
 ## Requirements
 
-Mac:
+macOS:
 
 ```sh
 brew install android-platform-tools ffmpeg
 ```
 
+Windows 10:
+
+```powershell
+winget install -e --id Gyan.FFmpeg
+```
+
+Install Android SDK Platform-Tools for Windows from Google's Android Developer
+site if `adb` is needed:
+https://developer.android.com/tools/releases/platform-tools
+
+Restart the terminal after installing so `adb` and `ffmpeg` are on `PATH`.
+
 Phone:
 
 ```text
-Android phone on the same Wi-Fi as the Mac
+Android phone on the same Wi-Fi as the detector machine
 Termux installed
 VLC for Android installed
 Bluetooth speaker paired to the phone and selected as media output
@@ -70,6 +82,24 @@ Otherwise:
 
 ```sh
 ./android_alert/deploy_adb.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\android_alert\deploy_adb.ps1
+```
+
+If PowerShell blocks local scripts, use:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\android_alert\deploy_adb.ps1
+```
+
+With an explicit phone serial:
+
+```powershell
+.\android_alert\deploy_adb.ps1 -AndroidSerial PHONE_SERIAL
 ```
 
 This copies files to:
@@ -177,6 +207,20 @@ python benchmark/live_detect.py \
   --alert-cooldown 60
 ```
 
+Windows PowerShell with LM Studio on the same Windows machine:
+
+```powershell
+.\.venv\Scripts\python benchmark\live_detect.py `
+  --backend windows `
+  --no-think `
+  --preset-cycle 1,2 `
+  --preset-dwell 55 `
+  --vlm-max-size 1440x810 `
+  --alert-url http://PHONE_IP:8765/bird `
+  --alert-token change-this-to-a-long-random-string `
+  --alert-cooldown 60
+```
+
 If no token is configured in Termux, remove `--alert-token`.
 
 Alert attempts and cooldown skips are written into `detections/log.jsonl` under
@@ -191,6 +235,12 @@ USB ADB:
 
 ```sh
 ANDROID_ALERT_ADB_SERIAL=PHONE_SERIAL ./android_alert/play_via_adb.sh
+```
+
+Windows PowerShell:
+
+```powershell
+.\android_alert\play_via_adb.ps1 -AndroidSerial PHONE_SERIAL
 ```
 
 Classic Wi-Fi ADB for older Android versions:
@@ -214,8 +264,22 @@ python benchmark/live_detect.py \
   --alert-timeout 5
 ```
 
+Windows PowerShell fallback command:
+
+```powershell
+.\.venv\Scripts\python benchmark\live_detect.py `
+  --backend windows `
+  --no-think `
+  --preset-cycle 1,2 `
+  --preset-dwell 55 `
+  --vlm-max-size 1440x810 `
+  --alert-command "powershell -ExecutionPolicy Bypass -File .\android_alert\play_via_adb.ps1 -AndroidSerial PHONE_SERIAL" `
+  --alert-timeout 5
+```
+
 If exactly one Wi-Fi ADB device is connected, `play_via_adb.sh` can auto-detect
-it. Otherwise set `ANDROID_ALERT_ADB_SERIAL`.
+it. Otherwise set `ANDROID_ALERT_ADB_SERIAL` or pass `-AndroidSerial` to the
+PowerShell helper.
 
 ## How Playback Works
 
@@ -260,8 +324,9 @@ sh /sdcard/Download/pigeon-setup/restart_receiver.sh
 If no sound plays, open VLC once manually, check that Android media output is
 the Bluetooth speaker, and verify phone media volume.
 
-If the Mac cannot reach `PHONE_IP:8765`, confirm the Mac and phone are on the
-same Wi-Fi/VLAN and that Android did not kill Termux in the background.
+If the detector machine cannot reach `PHONE_IP:8765`, confirm the machine and
+phone are on the same Wi-Fi/VLAN and that Android did not kill Termux in the
+background.
 
 For reliable long-running use, keep the phone plugged in and reserve a fixed IP
 for it in the router.

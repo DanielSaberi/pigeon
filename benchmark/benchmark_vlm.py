@@ -10,6 +10,9 @@ Usage (mac LM Studio):
 Usage (linux llama-server):
     python benchmark_vlm.py --backend linux --dataset coco --coco-dir data/coco
 
+Usage (Windows LM Studio):
+    python benchmark_vlm.py --backend windows --dataset balcony --no-think
+
 Usage (custom):
     python benchmark_vlm.py --base-url http://localhost:8080/v1 --model qwen3.5-35b \
         --dataset coco --coco-dir data/coco --output-dir results
@@ -44,6 +47,11 @@ BACKENDS = {
         "base_url": "http://localhost:8080/v1",
         "model": "qwen3.5-35b",
         "no_think_method": "extra_body",
+    },
+    "windows": {
+        "base_url": "http://localhost:1234/v1",
+        "model": "qwen3.6-35b-a3b@q4_k_xl",
+        "no_think_method": "prefill",
     },
 }
 
@@ -250,9 +258,10 @@ def main():
     )
 
     # Backend
-    parser.add_argument("--backend", choices=["mac", "linux"], default=None,
+    parser.add_argument("--backend", choices=sorted(BACKENDS), default=None,
                         help="Preset backend: 'mac' = LM Studio at 192.168.2.2:1234, "
-                             "'linux' = llama-server at localhost:8080")
+                             "'linux' = llama-server at localhost:8080, "
+                             "'windows' = LM Studio at localhost:1234")
     parser.add_argument("--base-url", default="https://openrouter.ai/api/v1",
                         help="OpenAI-compatible API base URL (overridden by --backend)")
     parser.add_argument("--api-key", default="no-key",

@@ -1,8 +1,5 @@
-ai-edge-litert
-pycocotools
 opencv-python
 numpy
-tabulate
 pytapo
 requests
 openai

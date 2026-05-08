@@ -5,6 +5,7 @@ differencing, and sends changed frames to a VLM for bird classification.
 
 Usage:
     python live_detect.py --backend mac --no-think
+    python live_detect.py --backend windows --no-think
     python live_detect.py --backend mac --no-think --interval 5 --change-threshold 2.0
 """
 import argparse
@@ -40,6 +41,11 @@ BACKENDS = {
         "base_url": "http://localhost:8080/v1",
         "model": "qwen3.5-35b",
         "no_think_method": "extra_body",
+    },
+    "windows": {
+        "base_url": "http://localhost:1234/v1",
+        "model": "qwen3.6-35b-a3b@q4_k_xl",
+        "no_think_method": "prefill",
     },
 }
 
@@ -200,12 +206,20 @@ def trigger_alert(url, token=None, timeout=1.0):
 def trigger_command_alert(command, timeout=5.0):
     """Run a best-effort local alert command."""
     try:
+        if os.name == "nt":
+            completed_command = command
+            use_shell = True
+        else:
+            completed_command = shlex.split(command)
+            use_shell = False
+
         result = subprocess.run(
-            shlex.split(command),
+            completed_command,
             capture_output=True,
             text=True,
             timeout=timeout,
             check=False,
+            shell=use_shell,
         )
         return {
             "ok": result.returncode == 0,
@@ -441,8 +455,14 @@ def main():
         description="Live bird detection from RTSP camera",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--backend", choices=["mac", "linux"], default="mac",
+    parser.add_argument("--backend", choices=sorted(BACKENDS), default="mac",
                         help="VLM backend preset")
+    parser.add_argument("--base-url",
+                        help="OpenAI-compatible API base URL; overrides --backend")
+    parser.add_argument("--model",
+                        help="Model name/slug; overrides --backend")
+    parser.add_argument("--api-key", default="no-key",
+                        help="API key for the VLM server")
     parser.add_argument("--rtsp-url", default=RTSP_URL,
                         help="RTSP stream URL")
     parser.add_argument("--interval", type=float, default=3.0,
@@ -498,8 +518,8 @@ def main():
 
     # Apply backend preset
     preset = BACKENDS[args.backend]
-    base_url = preset["base_url"]
-    model = preset["model"]
+    base_url = args.base_url or preset["base_url"]
+    model = args.model or preset["model"]
     no_think_method = preset["no_think_method"]
 
     # Adjust RTSP URL stream number
@@ -511,11 +531,12 @@ def main():
     if log_dir:
         os.makedirs(log_dir, exist_ok=True)
 
-    client = OpenAI(base_url=base_url, api_key="no-key")
+    client = OpenAI(base_url=base_url, api_key=args.api_key)
 
     print(f"Live bird detection")
     print(f"  Camera:    {rtsp_url.split('@')[1]}")
     print(f"  Backend:   {args.backend} ({model})")
+    print(f"  API:       {base_url}")
     print(f"  Interval:  {args.interval}s min between captures")
     if args.vlm_max_size is None:
         print("  VLM input: native")
