@@ -58,9 +58,14 @@ For a one-off foreground run on Windows:
 After a bird detection, the detector saves a continuous RTSP audio/video clip
 for 1.5 minutes by default as `postbird_av_*.mp4`. Configure the duration with
 `--post-detect-save-seconds`; use `0` or `--post-detect-mode off` to disable it.
-The AV mode temporarily stops frame-based detection, records one ffmpeg clip
-from the current preset, then reconnects detection. Use the older sampled-frame
-modes with `--post-detect-mode video`, `frames`, or `both`.
+By default, bird detections first enter deterrence mode: the camera stays on the
+current preset, motion gating and preset switching pause, VLM checks run
+back-to-back, and alerts repeat until two consecutive no-bird results. Tune this
+with `--deterrence-clear-count` and `--deterrence-alert-interval`, or disable it
+with `--deterrence-mode off`. With AV follow-up enabled, the ffmpeg recording is
+deferred until deterrence mode clears so it does not interrupt the repeated
+checks and alerts. Use the older sampled-frame modes with
+`--post-detect-mode video`, `frames`, or `both`.
 `--post-detect-video-fps` only affects sampled-frame MP4s; AV clips keep the
 camera stream's native FPS.
 

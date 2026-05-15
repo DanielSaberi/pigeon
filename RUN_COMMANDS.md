@@ -38,6 +38,18 @@ Watch the detector log:
 tail -f /Users/danielsaberi/Documents/code/pigeon/benchmark/live_detect.log
 ```
 
+Deterrence mode is enabled by default. After a bird-positive result, the camera
+stays on the current preset, preset switching and motion gating pause, alerts
+repeat, and VLM checks run back-to-back until two consecutive no-bird results.
+
+Useful knobs:
+
+```sh
+--deterrence-clear-count 2
+--deterrence-alert-interval 4
+--deterrence-mode off
+```
+
 Stop detection:
 
 ```sh

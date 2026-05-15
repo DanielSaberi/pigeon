@@ -19,6 +19,7 @@ import requests
 import shlex
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime
 from urllib.parse import unquote, urlparse
@@ -233,6 +234,83 @@ def trigger_command_alert(command, timeout=5.0):
             "returncode": None,
             "error": str(e)[:200],
         }
+
+
+def trigger_configured_alert(alert_url=None, alert_token=None, alert_command=None, timeout=1.0):
+    """Trigger all configured alert outputs once."""
+    result = {}
+    if alert_url:
+        result["http"] = trigger_alert(
+            alert_url,
+            token=alert_token,
+            timeout=timeout,
+        )
+    if alert_command:
+        result["command"] = trigger_command_alert(
+            alert_command,
+            timeout=timeout,
+        )
+    return result
+
+
+def alert_result_ok(alert_result):
+    """Return true when any configured alert backend succeeded."""
+    if not alert_result:
+        return False
+    return any(result.get("ok") for result in alert_result.values())
+
+
+class AlertRepeater:
+    """Repeatedly trigger alerts in the background during deterrence mode."""
+
+    def __init__(self, alert_url=None, alert_token=None, alert_command=None,
+                 timeout=1.0, interval=4.0):
+        self.alert_url = alert_url
+        self.alert_token = alert_token
+        self.alert_command = alert_command
+        self.timeout = timeout
+        self.interval = max(0.1, float(interval))
+        self._stop = threading.Event()
+        self._thread = None
+
+    def configured(self):
+        return bool(self.alert_url or self.alert_command)
+
+    def trigger_once(self):
+        return trigger_configured_alert(
+            alert_url=self.alert_url,
+            alert_token=self.alert_token,
+            alert_command=self.alert_command,
+            timeout=self.timeout,
+        )
+
+    def start(self):
+        """Start repeating alerts and return the immediate first alert result."""
+        if not self.configured():
+            return None
+        if self._thread is not None and self._thread.is_alive():
+            return None
+
+        self._stop.clear()
+        first_result = self.trigger_once()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+        return first_result
+
+    def _run(self):
+        while not self._stop.wait(self.interval):
+            result = self.trigger_once()
+            if alert_result_ok(result):
+                print("    Deterrence alert triggered")
+            else:
+                print(f"    Deterrence alert failed: {result}")
+
+    def stop(self):
+        if self._thread is None:
+            return
+        self._stop.set()
+        self._thread.join(timeout=1.0)
+        self._thread = None
 
 
 def prepare_motion_frame(frame):
@@ -499,6 +577,13 @@ def main():
                         help="Minimum seconds between alert triggers")
     parser.add_argument("--alert-timeout", type=float, default=1.0,
                         help="Timeout in seconds for alert triggers")
+    parser.add_argument("--deterrence-mode", choices=["on", "off"], default="on",
+                        help="After a bird detection, stay on the current preset, "
+                             "run continuous VLM checks, and repeat alerts until clear")
+    parser.add_argument("--deterrence-clear-count", type=int, default=2,
+                        help="Consecutive no-bird VLM results required to leave deterrence mode")
+    parser.add_argument("--deterrence-alert-interval", type=float, default=4.0,
+                        help="Seconds between repeated alerts while deterrence mode is active")
     parser.add_argument("--post-detect-save-seconds", type=float, default=90.0,
                         help="Seconds after a bird detection to save follow-up media; 0 disables")
     parser.add_argument("--post-detect-mode", choices=["av", "video", "frames", "both", "off"], default="av",
@@ -515,6 +600,11 @@ def main():
     )
     if save_post_detect_video and args.post_detect_video_fps <= 0:
         parser.error("--post-detect-video-fps must be positive")
+    if args.deterrence_clear_count < 1:
+        parser.error("--deterrence-clear-count must be at least 1")
+    if args.deterrence_alert_interval <= 0:
+        parser.error("--deterrence-alert-interval must be positive")
+    deterrence_enabled = args.deterrence_mode == "on"
 
     # Apply backend preset
     preset = BACKENDS[args.backend]
@@ -554,6 +644,10 @@ def main():
         print(f"  Alert:     {args.alert_url} ({args.alert_cooldown}s cooldown)")
     if args.alert_command:
         print(f"  Alert cmd: {args.alert_command} ({args.alert_cooldown}s cooldown)")
+    if deterrence_enabled:
+        print(f"  Deterrence: stay on bird preset, continuous checks until "
+              f"{args.deterrence_clear_count} consecutive no-bird result(s), "
+              f"alerts every {args.deterrence_alert_interval:g}s")
     if post_detect_enabled:
         detail = []
         if save_post_detect_av:
@@ -601,13 +695,25 @@ def main():
     post_detect_video_path = None
     post_detect_video_fname = None
     post_detect_video_size = None
+    deterrence_active = False
+    deterrence_session = 0
+    deterrence_clear_count = 0
+    deterrence_started_at = None
+    deterrence_pending_av = False
+    alert_repeater = AlertRepeater(
+        alert_url=args.alert_url,
+        alert_token=args.alert_token,
+        alert_command=args.alert_command,
+        timeout=args.alert_timeout,
+        interval=args.deterrence_alert_interval,
+    )
 
     try:
         while True:
             now = time.time()
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            if preset_cycle and now >= next_preset_switch:
+            if preset_cycle and not deterrence_active and now >= next_preset_switch:
                 preset_index = (preset_index + 1) % len(preset_cycle)
                 current_preset = preset_cycle[preset_index]
                 print(f"\n  [{timestamp}] Switching view...")
@@ -629,7 +735,7 @@ def main():
 
             # Respect minimum interval
             elapsed = now - last_capture_time
-            if elapsed < args.interval:
+            if not deterrence_active and elapsed < args.interval:
                 time.sleep(0.1)
                 continue
 
@@ -685,7 +791,13 @@ def main():
             reference_motion = motion_references.get(motion_key)
 
             # Check scene change
-            if reference_motion is not None:
+            if deterrence_active:
+                reference_motion = None
+                motion = {"prepared": prepare_motion_frame(frame)}
+                print(f"  [{timestamp}] Deterrence mode #{deterrence_session}: "
+                      f"continuous inference "
+                      f"(clear {deterrence_clear_count}/{args.deterrence_clear_count})...")
+            elif reference_motion is not None:
                 motion = analyze_motion(
                     reference_motion,
                     frame,
@@ -739,6 +851,9 @@ def main():
             alert_result = None
             post_detect_av_result = None
             stop_after_log = False
+            deterrence_entered = False
+            deterrence_exited = False
+            deterrence_duration_s = None
 
             print(f"  [{timestamp}] Inference #{inference_count}{preset_note}: {status} "
                   f"(conf={conf:.2f}, {inference_time:.1f}s)")
@@ -773,24 +888,55 @@ def main():
             else:
                 fname, save_path = save_frame(args.save_detections, "nobird", current_preset, frame)
 
-            if bird and (args.alert_url or args.alert_command):
+            if deterrence_enabled:
+                if bird:
+                    deterrence_clear_count = 0
+                    if not deterrence_active:
+                        deterrence_active = True
+                        deterrence_entered = True
+                        deterrence_session += 1
+                        deterrence_started_at = time.time()
+                        deterrence_pending_av = post_detect_enabled and save_post_detect_av
+                        alert_result = alert_repeater.start()
+                        print(f"    Deterrence mode #{deterrence_session} started; "
+                              "holding current view and repeating alerts")
+                        if alert_result is not None:
+                            if alert_result_ok(alert_result):
+                                print("    Deterrence alert triggered")
+                            else:
+                                print(f"    Deterrence alert failed: {alert_result}")
+                    elif post_detect_enabled and save_post_detect_av:
+                        deterrence_pending_av = True
+                elif deterrence_active:
+                    deterrence_clear_count += 1
+                    if deterrence_clear_count >= args.deterrence_clear_count:
+                        deterrence_exited = True
+                        deterrence_active = False
+                        alert_repeater.stop()
+                        if deterrence_started_at is not None:
+                            deterrence_duration_s = time.time() - deterrence_started_at
+                        print(f"    Deterrence mode #{deterrence_session} cleared after "
+                              f"{deterrence_clear_count} consecutive no-bird result(s)")
+                        deterrence_clear_count = 0
+                        deterrence_started_at = None
+                        if preset_cycle:
+                            next_preset_switch = time.time() + args.preset_dwell
+                    else:
+                        print(f"    Deterrence clear check "
+                              f"{deterrence_clear_count}/{args.deterrence_clear_count}; "
+                              "staying in continuous mode")
+
+            if bird and not deterrence_enabled and (args.alert_url or args.alert_command):
                 since_alert = time.time() - last_alert_time
                 if since_alert >= args.alert_cooldown:
-                    alert_result = {}
-                    if args.alert_url:
-                        alert_result["http"] = trigger_alert(
-                            args.alert_url,
-                            token=args.alert_token,
-                            timeout=args.alert_timeout,
-                        )
-                    if args.alert_command:
-                        alert_result["command"] = trigger_command_alert(
-                            args.alert_command,
-                            timeout=args.alert_timeout,
-                        )
+                    alert_result = trigger_configured_alert(
+                        alert_url=args.alert_url,
+                        alert_token=args.alert_token,
+                        alert_command=args.alert_command,
+                        timeout=args.alert_timeout,
+                    )
 
-                    alert_ok = any(result.get("ok") for result in alert_result.values())
-                    if alert_ok:
+                    if alert_result_ok(alert_result):
                         last_alert_time = time.time()
                         print("    Alert triggered")
                     else:
@@ -803,7 +949,15 @@ def main():
                     }
                     print(f"    Alert skipped: cooldown ({alert_result['remaining_s']}s remaining)")
 
-            if bird and post_detect_enabled and save_post_detect_av:
+            should_record_av = (
+                post_detect_enabled and save_post_detect_av and (
+                    (bird and not deterrence_enabled) or
+                    (deterrence_exited and deterrence_pending_av)
+                )
+            )
+            if should_record_av:
+                if deterrence_exited:
+                    deterrence_pending_av = False
                 print(f"    Recording AV follow-up for {args.post_detect_save_seconds:g}s...")
                 if post_detect_video_writer is not None:
                     post_detect_video_writer.release()
@@ -849,6 +1003,18 @@ def main():
             }
             if current_preset is not None:
                 log_entry["preset_id"] = current_preset
+            if deterrence_enabled:
+                log_entry["deterrence_active"] = deterrence_active
+                if deterrence_session:
+                    log_entry["deterrence_session"] = deterrence_session
+                if deterrence_entered:
+                    log_entry["deterrence_event"] = "entered"
+                elif deterrence_exited:
+                    log_entry["deterrence_event"] = "cleared"
+                if deterrence_duration_s is not None:
+                    log_entry["deterrence_duration_s"] = round(deterrence_duration_s, 2)
+                if deterrence_active:
+                    log_entry["deterrence_clear_count"] = deterrence_clear_count
             if bird:
                 log_entry["saved_frame"] = fname
                 if sampled_post_detect_enabled:
@@ -856,10 +1022,10 @@ def main():
                     log_entry["post_detect_mode"] = args.post_detect_mode
                     if post_detect_video_fname:
                         log_entry["post_detect_video"] = post_detect_video_fname
-                if post_detect_av_result is not None:
-                    log_entry["post_detect_mode"] = args.post_detect_mode
-                    log_entry["post_detect_video"] = post_detect_av_result.get("file")
-                    log_entry["post_detect_av"] = post_detect_av_result
+            if post_detect_av_result is not None:
+                log_entry["post_detect_mode"] = args.post_detect_mode
+                log_entry["post_detect_video"] = post_detect_av_result.get("file")
+                log_entry["post_detect_av"] = post_detect_av_result
             if alert_result is not None:
                 log_entry["alert"] = alert_result
             with open(args.log_file, "a") as f:
@@ -876,6 +1042,7 @@ def main():
         print(f"  Log: {args.log_file}")
 
     finally:
+        alert_repeater.stop()
         if post_detect_video_writer is not None:
             post_detect_video_writer.release()
         if cap is not None:

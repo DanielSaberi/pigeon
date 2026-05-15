@@ -114,6 +114,12 @@ powershell -ExecutionPolicy Bypass -File .\restart_detection.ps1 `
 The script starts `benchmark\live_detect.py` minimized, writes logs, and stops
 any previous detector process first.
 
+Deterrence mode is enabled by default. After a bird-positive result, the camera
+stays on the current preset, preset switching and motion gating pause, alerts
+repeat, and VLM checks run back-to-back until two consecutive no-bird results.
+Tune with `--deterrence-clear-count` and `--deterrence-alert-interval` in a
+foreground run, or disable it with `--deterrence-mode off`.
+
 ## Logs And Status
 
 Watch the main log:
@@ -186,4 +192,3 @@ Follow-up AV:    90 seconds after bird detection
 
 The AV follow-up recording uses FFmpeg and temporarily pauses frame detection
 while recording, because the Tapo camera only supports one RTSP client.
-
