@@ -33,7 +33,10 @@ Phone:
 ```text
 Android phone on the same Wi-Fi as the detector machine
 Termux installed
-VLC for Android installed
+Termux:API app installed
+termux-api package installed inside Termux
+mpv package installed inside Termux as optional non-foreground fallback
+VLC for Android installed as fallback playback only
 Bluetooth speaker paired to the phone and selected as media output
 Battery optimization disabled for Termux
 ```
@@ -116,6 +119,13 @@ On the phone, open Termux and run:
 termux-setup-storage
 sh ~/storage/downloads/pigeon-setup/termux_setup.sh
 ```
+
+If the setup warns that `termux-media-player` is unavailable, install the
+Termux:API Android app and rerun the setup. The receiver prefers
+`termux-media-player`, then optionally `mpv`, because both play audio without
+opening VLC as the foreground app. VLC remains a fallback only. If `mpv`
+installation fails because of Termux `ffmpeg` package errors, skip it and use
+Termux:API playback.
 
 Then start the receiver:
 
@@ -303,6 +313,7 @@ export BIRD_ALERT_FILE=/sdcard/Download/pigeon-setup/alert.mp3
 export BIRD_ALERT_COOLDOWN=2
 export BIRD_ALERT_MIN_DURATION=0
 export BIRD_ALERT_KIND=startle_combo
+export BIRD_ALERT_PLAYER=auto
 ```
 
 The receiver avoids repeating the exact same file twice in a row when multiple
@@ -312,17 +323,24 @@ to use the preserved single-hit files, `BIRD_ALERT_KIND=alert_sequence` and
 `BIRD_ALERT_MIN_DURATION=5.0` to return to the older 20-second sequence files,
 or `BIRD_ALERT_KIND=any` to include every manifest entry.
 
+`BIRD_ALERT_PLAYER=auto` tries `termux-media-player`, then `mpv`, then VLC.
+Set `BIRD_ALERT_PLAYER=termux-media-player` or `BIRD_ALERT_PLAYER=mpv` to
+forbid the VLC fallback, or `BIRD_ALERT_PLAYER=vlc` to force the older
+foreground-VLC behavior.
+
 ## Troubleshooting
 
-If `/health` returns only `{"ok":true}`, the old receiver is still running.
+If `/health` or `/status` returns only `{"ok":true}`, the old receiver is still running.
 Restart it with:
 
 ```sh
 sh /sdcard/Download/pigeon-setup/restart_receiver.sh
 ```
 
-If no sound plays, open VLC once manually, check that Android media output is
-the Bluetooth speaker, and verify phone media volume.
+If no sound plays, check that Android media output is the Bluetooth speaker and
+verify phone media volume with normal phone audio. If playback opens VLC in the
+foreground, both non-foreground players are missing or failing; install
+Termux:API and/or `mpv`, then restart the receiver.
 
 If the detector machine cannot reach `PHONE_IP:8765`, confirm the machine and
 phone are on the same Wi-Fi/VLAN and that Android did not kill Termux in the

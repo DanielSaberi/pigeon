@@ -78,6 +78,7 @@ benchmark/benchmark_vlm.py      offline VLM benchmark
 benchmark/ptz_control.py        Tapo PTZ helper
 restart_detection.ps1           Windows PowerShell restart helper
 restart_detection.sh            macOS/Linux restart helper
+WINDOWS_SETUP.md                Windows 10 setup and run guide
 android_alert/README.md         Android phone alert setup and reproduction guide
 android_alert/sounds/           normalized random alert sound set
 TODO.md                         follow-up implementation notes
@@ -92,7 +93,7 @@ Windows 10 requirements: Python 3, FFmpeg on `PATH`, local LM Studio with an
 OpenAI-compatible server enabled, and network access to the camera and Android
 phone receiver. The Android phone setup still runs inside Termux on the phone;
 Windows can deploy the files with `android_alert\deploy_adb.ps1` if ADB is
-installed.
+installed. See `WINDOWS_SETUP.md` for the full Windows setup and runbook.
 
 The RTSP stream exposes audio. The default AV follow-up mode releases the
 OpenCV detector stream before starting ffmpeg, because the Tapo camera appears

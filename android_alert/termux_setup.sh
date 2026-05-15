@@ -2,7 +2,7 @@
 set -eu
 
 pkg update -y
-pkg install -y python
+pkg install -y python termux-api mpv
 python -m pip install --no-cache-dir flask
 
 mkdir -p "$HOME/bird-alert"
@@ -23,7 +23,10 @@ Termux receiver files are installed in ~/bird-alert.
 Before starting:
 1. Pair this phone to the alert Bluetooth speaker.
 2. Make sure phone media output is the alert Bluetooth speaker.
-3. Start the receiver:
+3. Install the Termux:API Android app if it is not installed yet. The
+   termux-api package provides the command-line tools, but the companion app is
+   what lets Termux play media without opening VLC.
+4. Start the receiver:
 
    export BIRD_ALERT_TOKEN='change-this-to-a-long-random-string'  # optional but recommended
    ~/bird-alert/start.sh

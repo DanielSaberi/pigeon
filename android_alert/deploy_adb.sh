@@ -25,6 +25,8 @@ adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/server.py" "$REMOTE_DIR/server.py"
 adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/start.sh" "$REMOTE_DIR/start.sh"
 adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/termux_setup.sh" "$REMOTE_DIR/termux_setup.sh"
 adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/restart_receiver.sh" "$REMOTE_DIR/restart_receiver.sh"
+adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/update_receiver_termux.sh" "$REMOTE_DIR/update_receiver_termux.sh"
+adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/update_receiver_termux.sh" "/sdcard/a"
 adb -s "$ADB_SERIAL" push "$SCRIPT_DIR/alert.mp3" "$REMOTE_DIR/alert.mp3"
 if [ -d "$SCRIPT_DIR/sounds" ]; then
   adb -s "$ADB_SERIAL" shell "rm -rf '$REMOTE_DIR/sounds'"
@@ -39,3 +41,6 @@ echo "  sh ~/storage/downloads/pigeon-setup/termux_setup.sh"
 echo
 echo "For later receiver restarts after redeploying:"
 echo "  sh /sdcard/Download/pigeon-setup/restart_receiver.sh"
+echo
+echo "For one-command update/install from Termux:"
+echo "  sh /sdcard/a"
