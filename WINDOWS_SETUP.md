@@ -117,11 +117,13 @@ any previous detector process first.
 Deterrence mode is enabled by default. After a bird-positive result, the camera
 stays on the current preset, preset switching and motion gating pause, alerts
 repeat, and VLM checks run back-to-back until two consecutive no-bird results.
-The scare-away period is recorded as a video-only `deterrence_*.mp4` from the
-active detection stream. The separate `postbird_av_*.mp4` with audio is still
-recorded after deterrence clears. Tune with `--deterrence-clear-count`,
-`--deterrence-alert-interval`, and `--deterrence-record-fps` in a foreground run,
-or disable it with `--deterrence-mode off`.
+The scare-away period is recorded as `deterrence_av_*.mp4` with audio and video.
+The recording starts only after the first positive bird result and stops when
+deterrence clears. One ffmpeg process owns the RTSP session, records the MP4,
+and feeds frames back to Python for VLM checks. Tune with
+`--deterrence-clear-count`, `--deterrence-alert-interval`,
+`--deterrence-frame-size`, and `--deterrence-frame-fps` in a foreground run, or
+disable it with `--deterrence-mode off`.
 
 ## Logs And Status
 
@@ -190,8 +192,8 @@ Camera RTSP:     rtsp://Daniel:Webdev20!@192.168.178.34/stream1
 Preset cycle:    1,2
 Preset dwell:    55 seconds
 VLM image size:  1440x810
-Follow-up AV:    90 seconds after bird detection
+Deterrence AV:   starts on bird detection, stops after two no-bird results
 ```
 
-The AV follow-up recording uses FFmpeg and temporarily pauses frame detection
-while recording, because the Tapo camera only supports one RTSP client.
+Deterrence AV uses FFmpeg and does not require a second RTSP client. Preset
+cycling stays paused until deterrence clears.

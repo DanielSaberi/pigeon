@@ -28,7 +28,7 @@ if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
-    throw "ffmpeg is not on PATH. Install ffmpeg before using AV follow-up recording."
+    throw "ffmpeg is not on PATH. Install ffmpeg before using deterrence AV recording."
 }
 
 Get-CimInstance Win32_Process |
@@ -50,8 +50,10 @@ $Arguments = @(
     "--vlm-max-size", "1440x810",
     "--alert-url", "http://$PhoneIp`:8765/bird",
     "--alert-cooldown", "60",
-    "--post-detect-mode", "av",
-    "--post-detect-save-seconds", "90",
+    "--deterrence-record-video", "on",
+    "--deterrence-frame-size", "1440x810",
+    "--deterrence-frame-fps", "1",
+    "--post-detect-mode", "off",
     "--save-detections", "benchmark\detections",
     "--log-file", "benchmark\detections\log.jsonl"
 )

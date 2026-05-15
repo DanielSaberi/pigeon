@@ -39,7 +39,7 @@ pkill -f "benchmark/live_detect.py" >/dev/null 2>&1 || true
 # Start detector:
 # --preset-cycle 1,2 and --preset-dwell 55 alternate balcony views.
 # --alert-url triggers phone playback receiver on bird detections.
-# --post-detect-save-seconds 90 records a 1.5 minute AV follow-up clip.
+# Deterrence mode records the scare-away period as AV until the bird is gone.
 screen -dmS "$SESSION_NAME" zsh -lc "
   cd '$SCRIPT_DIR' && \
   .venv/bin/python -u benchmark/live_detect.py \
@@ -50,8 +50,10 @@ screen -dmS "$SESSION_NAME" zsh -lc "
     --vlm-max-size 1440x810 \
     --alert-url http://$PHONE_IP:8765/bird \
     --alert-cooldown 60 \
-    --post-detect-mode av \
-    --post-detect-save-seconds 90 \
+    --deterrence-record-video on \
+    --deterrence-frame-size 1440x810 \
+    --deterrence-frame-fps 1 \
+    --post-detect-mode off \
     --save-detections benchmark/detections \
     --log-file benchmark/detections/log.jsonl \
     > '$LOG_FILE' 2>&1

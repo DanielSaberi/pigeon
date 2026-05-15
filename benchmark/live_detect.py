@@ -21,6 +21,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from datetime import datetime
 from urllib.parse import unquote, urlparse
 
@@ -117,6 +118,21 @@ def parse_vlm_max_size(value):
     if not match:
         raise argparse.ArgumentTypeError(
             "must be WIDTHxHEIGHT (for example 1600x900) or 'native'"
+        )
+
+    width = int(match.group(1))
+    height = int(match.group(2))
+    if width <= 0 or height <= 0:
+        raise argparse.ArgumentTypeError("width and height must be positive")
+    return (width, height)
+
+
+def parse_frame_size(value):
+    """Parse fixed WIDTHxHEIGHT for ffmpeg raw-frame output."""
+    match = re.fullmatch(r"(\d+)x(\d+)", value.strip().lower())
+    if not match:
+        raise argparse.ArgumentTypeError(
+            "must be WIDTHxHEIGHT (for example 1440x810)"
         )
 
     width = int(match.group(1))
@@ -471,67 +487,125 @@ def write_video_frame(writer, frame, size):
 
 
 class DeterrenceCapture:
-    """Continuously read one RTSP stream, keep latest frame, and record MP4."""
+    """Record deterrence AV with ffmpeg and expose decoded frames to detection."""
 
-    def __init__(self, rtsp_url, save_dir, preset_id, initial_frame, fps=8.0):
+    def __init__(self, rtsp_url, save_dir, preset_id, initial_frame,
+                 frame_size=(1440, 810), frame_fps=1.0):
         self.rtsp_url = rtsp_url
-        self.fps = max(0.1, float(fps))
-        (
-            self.writer,
-            self.fname,
-            self.save_path,
-            self.video_size,
-        ) = open_video_writer(save_dir, "deterrence", preset_id, initial_frame, self.fps)
+        self.frame_size = frame_size
+        self.frame_fps = max(0.1, float(frame_fps))
+        suffix = preset_suffix(preset_id)
+        self.fname = f"deterrence_av{suffix}_{frame_timestamp()}.mp4"
+        self.save_path = os.path.join(save_dir, self.fname)
 
         self.lock = threading.Lock()
-        self.stop_event = threading.Event()
-        self.thread = None
-        self.cap = None
+        self.process = None
+        self.frame_thread = None
+        self.stderr_thread = None
+        self.stderr_lines = deque(maxlen=40)
         self.latest = initial_frame.copy()
         self.latest_seq = 1
-        self.frame_count = 1
+        self.pipe_frame_count = 0
         self.error = None
         self.started_at = time.time()
         self.ended_at = None
 
-        write_video_frame(self.writer, initial_frame, self.video_size)
-
     def start(self):
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
+        cmd = self._build_command()
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                bufsize=0,
+            )
+        except OSError as e:
+            raise RuntimeError(f"Could not start ffmpeg: {e}") from e
+
+        self.frame_thread = threading.Thread(target=self._read_frames, daemon=True)
+        self.stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
+        self.frame_thread.start()
+        self.stderr_thread.start()
         return self
 
-    def _run(self):
-        self.cap = open_stream(self.rtsp_url)
-        if self.cap is None:
-            self.error = "Could not open RTSP stream for deterrence recording"
+    def _build_command(self):
+        width, height = self.frame_size
+        frame_filter = f"fps={self.frame_fps:g},scale={width}:{height}:flags=area"
+        return [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            self.rtsp_url,
+            "-map",
+            "0:v:0",
+            "-map",
+            "0:a?",
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "64k",
+            "-movflags",
+            "+faststart",
+            self.save_path,
+            "-map",
+            "0:v:0",
+            "-vf",
+            frame_filter,
+            "-pix_fmt",
+            "bgr24",
+            "-an",
+            "-f",
+            "rawvideo",
+            "pipe:1",
+        ]
+
+    def _read_frames(self):
+        if self.process is None or self.process.stdout is None:
             return
 
-        next_write_at = time.time() + (1.0 / self.fps)
-        failed_reads = 0
-        while not self.stop_event.is_set():
-            ret, frame = self.cap.read()
-            if not ret:
-                failed_reads += 1
-                if failed_reads >= 10:
-                    self.error = "RTSP read failed during deterrence recording"
-                    break
-                time.sleep(0.05)
-                continue
+        width, height = self.frame_size
+        frame_bytes = width * height * 3
+        while True:
+            raw = self._read_exact(self.process.stdout, frame_bytes)
+            if raw is None:
+                break
 
-            failed_reads = 0
-            now = time.time()
+            frame = np.frombuffer(raw, dtype=np.uint8).reshape((height, width, 3)).copy()
             with self.lock:
-                self.latest = frame.copy()
+                self.latest = frame
                 self.latest_seq += 1
-                if now >= next_write_at:
-                    write_video_frame(self.writer, frame, self.video_size)
-                    self.frame_count += 1
-                    next_write_at = now + (1.0 / self.fps)
+                self.pipe_frame_count += 1
 
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
+        if self.process is not None:
+            returncode = self.process.poll()
+            if returncode not in (None, 0) and self.error is None:
+                self.error = f"ffmpeg exited with code {returncode}"
+
+    @staticmethod
+    def _read_exact(pipe, byte_count):
+        chunks = []
+        remaining = byte_count
+        while remaining > 0:
+            chunk = pipe.read(remaining)
+            if not chunk:
+                return None
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
+    def _read_stderr(self):
+        if self.process is None or self.process.stderr is None:
+            return
+        for raw_line in iter(self.process.stderr.readline, b""):
+            line = raw_line.decode("utf-8", errors="replace").strip()
+            if line:
+                self.stderr_lines.append(line)
 
     def latest_frame(self, after_seq=None, timeout=2.0):
         """Return the newest frame, preferably newer than after_seq."""
@@ -540,34 +614,68 @@ class DeterrenceCapture:
             with self.lock:
                 if after_seq is None or self.latest_seq != after_seq or time.time() >= deadline:
                     return self.latest.copy(), self.latest_seq
-            if self.error or self.stop_event.is_set():
+
+            if self.process is not None and self.process.poll() is not None:
                 with self.lock:
                     return self.latest.copy(), self.latest_seq
             time.sleep(0.02)
 
     def stop(self):
-        self.stop_event.set()
-        if self.thread is not None:
-            self.thread.join(timeout=3.0)
-            self.thread = None
-        if self.cap is not None:
-            self.cap.release()
-            self.cap = None
-        if self.writer is not None:
-            self.writer.release()
-            self.writer = None
+        if self.process is not None and self.process.poll() is None:
+            self._request_ffmpeg_quit()
+            try:
+                self.process.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
+                self.process.terminate()
+                try:
+                    self.process.wait(timeout=3.0)
+                except subprocess.TimeoutExpired:
+                    self.process.kill()
+                    self.process.wait(timeout=3.0)
+
+        if self.frame_thread is not None:
+            self.frame_thread.join(timeout=2.0)
+            self.frame_thread = None
+        if self.stderr_thread is not None:
+            self.stderr_thread.join(timeout=1.0)
+            self.stderr_thread = None
+
+        returncode = self.process.returncode if self.process is not None else None
+        if self.process is not None:
+            for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+                if stream is not None:
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
+            self.process = None
 
         self.ended_at = time.time()
         file_size = os.path.getsize(self.save_path) if os.path.exists(self.save_path) else 0
+        stderr_tail = "\n".join(self.stderr_lines)[-1000:]
+        ok = file_size > 0 and returncode == 0 and self.error is None
         return {
-            "ok": file_size > 0 and self.error is None,
+            "ok": ok,
             "file": self.fname,
-            "frame_count": self.frame_count,
-            "fps": self.fps,
+            "frame_count": self.pipe_frame_count,
+            "frame_fps": self.frame_fps,
+            "frame_size": [self.frame_size[0], self.frame_size[1]],
             "elapsed_s": round(self.ended_at - self.started_at, 2),
+            "returncode": returncode,
             "file_size_bytes": file_size,
+            "stderr": stderr_tail,
             "error": self.error,
         }
+
+    def _request_ffmpeg_quit(self):
+        if self.process is None or self.process.stdin is None:
+            return
+        try:
+            self.process.stdin.write(b"q")
+            self.process.stdin.flush()
+            self.process.stdin.close()
+        except (BrokenPipeError, OSError, ValueError):
+            pass
 
 
 def record_av_clip(rtsp_url, save_dir, prefix, preset_id, duration_seconds):
@@ -685,9 +793,14 @@ def main():
     parser.add_argument("--deterrence-alert-interval", type=float, default=4.0,
                         help="Seconds between repeated alerts while deterrence mode is active")
     parser.add_argument("--deterrence-record-video", choices=["on", "off"], default="on",
-                        help="Record an MP4 from the active RTSP stream while deterrence mode is active")
-    parser.add_argument("--deterrence-record-fps", type=float, default=8.0,
-                        help="FPS for MP4 recorded during deterrence mode")
+                        help="Record an audio/video MP4 while deterrence mode is active")
+    parser.add_argument("--deterrence-frame-fps", type=float, default=1.0,
+                        help="FPS of frames piped from ffmpeg to VLM checks during deterrence; "
+                             "the saved AV MP4 keeps the camera stream's native FPS")
+    parser.add_argument("--deterrence-frame-size", type=parse_frame_size, default=(1440, 810),
+                        help="Frame size piped from ffmpeg to VLM checks during deterrence")
+    parser.add_argument("--deterrence-record-fps", type=float,
+                        help="Deprecated alias for --deterrence-frame-fps")
     parser.add_argument("--post-detect-save-seconds", type=float, default=90.0,
                         help="Seconds after a bird detection to save follow-up media; 0 disables")
     parser.add_argument("--post-detect-mode", choices=["av", "video", "frames", "both", "off"], default="av",
@@ -708,8 +821,10 @@ def main():
         parser.error("--deterrence-clear-count must be at least 1")
     if args.deterrence_alert_interval <= 0:
         parser.error("--deterrence-alert-interval must be positive")
-    if args.deterrence_record_fps <= 0:
-        parser.error("--deterrence-record-fps must be positive")
+    if args.deterrence_record_fps is not None:
+        args.deterrence_frame_fps = args.deterrence_record_fps
+    if args.deterrence_frame_fps <= 0:
+        parser.error("--deterrence-frame-fps must be positive")
     deterrence_enabled = args.deterrence_mode == "on"
     deterrence_record_enabled = deterrence_enabled and args.deterrence_record_video == "on"
 
@@ -756,7 +871,9 @@ def main():
               f"{args.deterrence_clear_count} consecutive no-bird result(s), "
               f"alerts every {args.deterrence_alert_interval:g}s")
         if deterrence_record_enabled:
-            print(f"  Deterrence video: MP4 at {args.deterrence_record_fps:g} fps")
+            print(f"  Deterrence AV: audio/video MP4, VLM frame pipe "
+                  f"{args.deterrence_frame_size[0]}x{args.deterrence_frame_size[1]} "
+                  f"at {args.deterrence_frame_fps:g} fps")
     if post_detect_enabled:
         detail = []
         if save_post_detect_av:
@@ -765,8 +882,12 @@ def main():
             detail.append(f"MP4 at {args.post_detect_video_fps:g} fps")
         if save_post_detect_frames:
             detail.append("JPEG frames")
-        print(f"  Follow-up: save {' and '.join(detail)} for "
-              f"{args.post_detect_save_seconds}s after bird detections")
+        if deterrence_enabled and save_post_detect_av:
+            print("  Follow-up: AV after-clear recording disabled while deterrence is on; "
+                  "deterrence AV records the scare-away period instead")
+        else:
+            print(f"  Follow-up: save {' and '.join(detail)} for "
+                  f"{args.post_detect_save_seconds}s after bird detections")
     print()
 
     ptz = None
@@ -808,7 +929,6 @@ def main():
     deterrence_session = 0
     deterrence_clear_count = 0
     deterrence_started_at = None
-    deterrence_pending_av = False
     deterrence_capture = None
     deterrence_capture_seq = None
     alert_repeater = AlertRepeater(
@@ -1016,7 +1136,6 @@ def main():
                         deterrence_entered = True
                         deterrence_session += 1
                         deterrence_started_at = time.time()
-                        deterrence_pending_av = post_detect_enabled and save_post_detect_av
                         if deterrence_record_enabled:
                             if cap is not None:
                                 cap.release()
@@ -1027,19 +1146,20 @@ def main():
                                     args.save_detections,
                                     current_preset,
                                     frame,
-                                    fps=args.deterrence_record_fps,
+                                    frame_size=args.deterrence_frame_size,
+                                    frame_fps=args.deterrence_frame_fps,
                                 ).start()
                                 deterrence_capture_seq = 1
-                                print(f"    Deterrence video started: "
+                                print(f"    Deterrence AV recording started: "
                                       f"{deterrence_capture.save_path}")
                             except RuntimeError as e:
                                 deterrence_capture = None
                                 deterrence_capture_seq = None
-                                print(f"    Deterrence video failed to start: {e}")
+                                print(f"    Deterrence AV recording failed to start: {e}")
                                 cap = open_stream(rtsp_url)
                                 if cap is None:
                                     print("ERROR: Could not reopen RTSP stream after "
-                                          "deterrence video start failure", file=sys.stderr)
+                                          "deterrence AV start failure", file=sys.stderr)
                                     stop_after_log = True
                         alert_result = alert_repeater.start()
                         print(f"    Deterrence mode #{deterrence_session} started; "
@@ -1049,8 +1169,6 @@ def main():
                                 print("    Deterrence alert triggered")
                             else:
                                 print(f"    Deterrence alert failed: {alert_result}")
-                    elif post_detect_enabled and save_post_detect_av:
-                        deterrence_pending_av = True
                 elif deterrence_active:
                     deterrence_clear_count += 1
                     if deterrence_clear_count >= args.deterrence_clear_count:
@@ -1095,24 +1213,23 @@ def main():
 
             should_record_av = (
                 post_detect_enabled and save_post_detect_av and (
-                    (bird and not deterrence_enabled) or
-                    (deterrence_exited and deterrence_pending_av)
+                    bird and not deterrence_enabled
                 )
             )
             if deterrence_exited and deterrence_capture is not None:
                 deterrence_record_result = deterrence_capture.stop()
                 if deterrence_record_result.get("ok"):
-                    print(f"    Deterrence video saved: "
+                    print(f"    Deterrence AV recording saved: "
                           f"{os.path.join(args.save_detections, deterrence_record_result['file'])}")
                 else:
-                    print(f"    Deterrence video failed: {deterrence_record_result}")
+                    print(f"    Deterrence AV recording failed: {deterrence_record_result}")
                 deterrence_capture = None
                 deterrence_capture_seq = None
                 if cap is None and not should_record_av:
                     print("    Reconnecting detection stream...")
                     cap = open_stream(rtsp_url)
                     if cap is None:
-                        print("ERROR: Could not reopen RTSP stream after deterrence video",
+                        print("ERROR: Could not reopen RTSP stream after deterrence AV",
                               file=sys.stderr)
                         stop_after_log = True
                     else:
@@ -1122,8 +1239,6 @@ def main():
                             next_preset_switch = time.time() + args.preset_dwell
 
             if should_record_av:
-                if deterrence_exited:
-                    deterrence_pending_av = False
                 print(f"    Recording AV follow-up for {args.post_detect_save_seconds:g}s...")
                 if post_detect_video_writer is not None:
                     post_detect_video_writer.release()
@@ -1183,7 +1298,7 @@ def main():
                 if deterrence_active:
                     log_entry["deterrence_clear_count"] = deterrence_clear_count
                 if deterrence_record_result is not None:
-                    log_entry["deterrence_video"] = deterrence_record_result
+                    log_entry["deterrence_av"] = deterrence_record_result
             if bird:
                 log_entry["saved_frame"] = fname
                 if sampled_post_detect_enabled:

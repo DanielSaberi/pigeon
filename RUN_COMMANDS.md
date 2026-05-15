@@ -41,9 +41,10 @@ tail -f /Users/danielsaberi/Documents/code/pigeon/benchmark/live_detect.log
 Deterrence mode is enabled by default. After a bird-positive result, the camera
 stays on the current preset, preset switching and motion gating pause, alerts
 repeat, and VLM checks run back-to-back until two consecutive no-bird results.
-The scare-away period is recorded as a video-only `deterrence_*.mp4` from the
-active detection stream. The separate `postbird_av_*.mp4` with audio is still
-recorded after deterrence clears.
+The scare-away period is recorded as `deterrence_av_*.mp4` with audio and video.
+That recording starts only after the first positive bird result and stops when
+deterrence clears. A single ffmpeg RTSP reader records the MP4 and feeds frames
+to Python, so this does not require a second camera session.
 
 Useful knobs:
 
@@ -51,7 +52,8 @@ Useful knobs:
 --deterrence-clear-count 2
 --deterrence-alert-interval 4
 --deterrence-record-video on
---deterrence-record-fps 8
+--deterrence-frame-size 1440x810
+--deterrence-frame-fps 1
 --deterrence-mode off
 ```
 
