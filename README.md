@@ -62,9 +62,12 @@ By default, bird detections first enter deterrence mode: the camera stays on the
 current preset, motion gating and preset switching pause, VLM checks run
 back-to-back, and alerts repeat until two consecutive no-bird results. Tune this
 with `--deterrence-clear-count` and `--deterrence-alert-interval`, or disable it
-with `--deterrence-mode off`. With AV follow-up enabled, the ffmpeg recording is
-deferred until deterrence mode clears so it does not interrupt the repeated
-checks and alerts. Use the older sampled-frame modes with
+with `--deterrence-mode off`. While deterrence mode is active, the same RTSP
+stream is recorded to a video-only `deterrence_*.mp4` so the scare-away period
+can be reviewed later. Tune that with `--deterrence-record-video` and
+`--deterrence-record-fps`. With AV follow-up enabled, the separate ffmpeg
+audio/video recording is deferred until deterrence mode clears so it does not
+interrupt the repeated checks and alerts. Use the older sampled-frame modes with
 `--post-detect-mode video`, `frames`, or `both`.
 `--post-detect-video-fps` only affects sampled-frame MP4s; AV clips keep the
 camera stream's native FPS.

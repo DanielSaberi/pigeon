@@ -117,8 +117,11 @@ any previous detector process first.
 Deterrence mode is enabled by default. After a bird-positive result, the camera
 stays on the current preset, preset switching and motion gating pause, alerts
 repeat, and VLM checks run back-to-back until two consecutive no-bird results.
-Tune with `--deterrence-clear-count` and `--deterrence-alert-interval` in a
-foreground run, or disable it with `--deterrence-mode off`.
+The scare-away period is recorded as a video-only `deterrence_*.mp4` from the
+active detection stream. The separate `postbird_av_*.mp4` with audio is still
+recorded after deterrence clears. Tune with `--deterrence-clear-count`,
+`--deterrence-alert-interval`, and `--deterrence-record-fps` in a foreground run,
+or disable it with `--deterrence-mode off`.
 
 ## Logs And Status
 
